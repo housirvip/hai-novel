@@ -29,6 +29,18 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
     const { HookChapterLinkRepository } = await importDist(
       "db/repositories/hook-chapter-link-repository.js"
     );
+    const { ChapterStateSnapshotRepository } = await importDist(
+      "db/repositories/chapter-state-snapshot-repository.js"
+    );
+    const { CharacterStateSnapshotRepository } = await importDist(
+      "db/repositories/character-state-snapshot-repository.js"
+    );
+    const { FactionStateSnapshotRepository } = await importDist(
+      "db/repositories/faction-state-snapshot-repository.js"
+    );
+    const { HookStateSnapshotRepository } = await importDist(
+      "db/repositories/hook-state-snapshot-repository.js"
+    );
     const { ChapterContextBuilder } = await importDist(
       "app/services/chapter-context-builder.js"
     );
@@ -43,6 +55,10 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
     const characterFactionRelationRepository = new CharacterFactionRelationRepository(database);
     const hookRepository = new StoryHookRepository(database);
     const hookLinkRepository = new HookChapterLinkRepository(database);
+    const chapterStateSnapshotRepository = new ChapterStateSnapshotRepository(database);
+    const characterStateSnapshotRepository = new CharacterStateSnapshotRepository(database);
+    const factionStateSnapshotRepository = new FactionStateSnapshotRepository(database);
+    const hookStateSnapshotRepository = new HookStateSnapshotRepository(database);
 
     const project = projectRepository.create({
       name: "上下文测试小说",
@@ -72,6 +88,11 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
       title: "第001章章纲",
       summary: "章纲摘要",
       position: 1
+    });
+    const previousChapter = chapterRepository.create({
+      projectId: project.id,
+      title: "第000章",
+      summary: "前情章节"
     });
     const chapter = chapterRepository.create({
       projectId: project.id,
@@ -144,6 +165,37 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
       status: "planned"
     });
 
+    const chapterSnapshot = chapterStateSnapshotRepository.create({
+      projectId: project.id,
+      chapterId: previousChapter.id,
+      status: "applied",
+      summary: "林渡已经注意到黑玉佩异动",
+      rawPayload: "{\"chapter_summary\":\"前情已生效\"}",
+      applied: true
+    });
+    characterStateSnapshotRepository.create({
+      projectId: project.id,
+      characterId: hero.id,
+      chapterId: previousChapter.id,
+      chapterSnapshotId: chapterSnapshot.id,
+      statusSummary: "林渡已经起疑"
+    });
+    factionStateSnapshotRepository.create({
+      projectId: project.id,
+      factionId: faction.id,
+      chapterId: previousChapter.id,
+      chapterSnapshotId: chapterSnapshot.id,
+      statusSummary: "青岚宗对外收紧山门"
+    });
+    hookStateSnapshotRepository.create({
+      projectId: project.id,
+      hookId: hook.id,
+      chapterId: previousChapter.id,
+      chapterSnapshotId: chapterSnapshot.id,
+      progressStatus: "advanced",
+      progressNote: "黑玉佩异动已经发生"
+    });
+
     const builder = new ChapterContextBuilder(database);
     const context = builder.build({
       projectId: project.id,
@@ -162,6 +214,10 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
     assert.equal(context.hook_links.length, 1);
     assert.equal(context.target_hooks.length, 1);
     assert.equal(context.active_hooks.length, 1);
+    assert.equal(context.latest_chapter_snapshot?.chapter_id, previousChapter.id);
+    assert.equal(context.latest_character_states.length, 1);
+    assert.equal(context.latest_faction_states.length, 1);
+    assert.equal(context.latest_hook_states.length, 1);
   } finally {
     database.close();
   }
@@ -181,18 +237,33 @@ test("PromptService 能输出带模板元数据的 plan / draft prompt", async (
     const { ChapterDraftRepository } = await importDist(
       "db/repositories/chapter-draft-repository.js"
     );
+    const { CharacterRepository } = await importDist("db/repositories/character-repository.js");
+    const { ChapterStateSnapshotRepository } = await importDist(
+      "db/repositories/chapter-state-snapshot-repository.js"
+    );
+    const { CharacterStateSnapshotRepository } = await importDist(
+      "db/repositories/character-state-snapshot-repository.js"
+    );
     const { PromptService } = await importDist("app/services/prompt-service.js");
 
     const projectRepository = new ProjectRepository(database);
     const chapterRepository = new ChapterRepository(database);
     const planRepository = new ChapterPlanRepository(database);
     const draftRepository = new ChapterDraftRepository(database);
+    const characterRepository = new CharacterRepository(database);
+    const chapterStateSnapshotRepository = new ChapterStateSnapshotRepository(database);
+    const characterStateSnapshotRepository = new CharacterStateSnapshotRepository(database);
 
     const project = projectRepository.create({
       name: "提示词测试小说",
       genre: "仙侠",
       premise: "主角卷入宗门纷争",
       style: "克制"
+    });
+    const previousChapter = chapterRepository.create({
+      projectId: project.id,
+      title: "第000章",
+      summary: "前情摘要"
     });
     const chapter = chapterRepository.create({
       projectId: project.id,
@@ -212,6 +283,26 @@ test("PromptService 能输出带模板元数据的 plan / draft prompt", async (
       planId: plan.id,
       draftText: "这是草稿正文。",
       status: "generated"
+    });
+    const hero = characterRepository.create({
+      projectId: project.id,
+      name: "林渡",
+      role: "protagonist",
+      goal: "查清真相"
+    });
+    const chapterSnapshot = chapterStateSnapshotRepository.create({
+      projectId: project.id,
+      chapterId: previousChapter.id,
+      status: "applied",
+      summary: "上一章正式状态已经生效",
+      applied: true
+    });
+    characterStateSnapshotRepository.create({
+      projectId: project.id,
+      characterId: hero.id,
+      chapterId: previousChapter.id,
+      chapterSnapshotId: chapterSnapshot.id,
+      statusSummary: "林渡已经察觉异常"
     });
 
     const service = new PromptService(context);
@@ -235,6 +326,9 @@ test("PromptService 能输出带模板元数据的 plan / draft prompt", async (
     assert.match(planBundle.prompt, /突出悬念/);
     assert.match(draftBundle.prompt, /这是章节计划/);
     assert.match(fixBundle.prompt, /修一下节奏/);
+    assert.match(planBundle.contextText, /最近正式状态/);
+    assert.match(planBundle.contextText, /上一章正式状态已经生效/);
+    assert.match(planBundle.contextText, /林渡已经察觉异常/);
   } finally {
     database.close();
   }

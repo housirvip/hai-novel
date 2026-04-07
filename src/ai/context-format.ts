@@ -133,6 +133,52 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
       ? hookLines.join("\n")
       : "当前没有与本章直接关联或仍在活跃的钩子。";
 
+  const latestChapterSnapshotSection = context.latest_chapter_snapshot
+    ? [
+        `- 最近正式状态章节：${context.latest_chapter_snapshot.chapter_id}`,
+        `- 状态摘要：${context.latest_chapter_snapshot.summary ?? "未提供"}`
+      ].join("\n")
+    : "- 当前还没有可用的正式状态快照。";
+
+  const latestCharacterStateSection =
+    context.latest_character_states.length > 0
+      ? context.latest_character_states
+          .slice(0, 8)
+          .map(
+            (snapshot, index) =>
+              `${index + 1}. character_id=${snapshot.character_id} / chapter=${
+                snapshot.chapter_id
+              }${snapshot.status_summary ? ` / ${snapshot.status_summary}` : ""}`
+          )
+          .join("\n")
+      : "1. 当前没有可用的人物正式状态快照。";
+
+  const latestFactionStateSection =
+    context.latest_faction_states.length > 0
+      ? context.latest_faction_states
+          .slice(0, 8)
+          .map(
+            (snapshot, index) =>
+              `${index + 1}. faction_id=${snapshot.faction_id} / chapter=${
+                snapshot.chapter_id
+              }${snapshot.status_summary ? ` / ${snapshot.status_summary}` : ""}`
+          )
+          .join("\n")
+      : "1. 当前没有可用的势力正式状态快照。";
+
+  const latestHookStateSection =
+    context.latest_hook_states.length > 0
+      ? context.latest_hook_states
+          .slice(0, 8)
+          .map(
+            (snapshot, index) =>
+              `${index + 1}. hook_id=${snapshot.hook_id} / chapter=${snapshot.chapter_id} / ${
+                snapshot.progress_status
+              }${snapshot.progress_note ? ` / ${snapshot.progress_note}` : ""}`
+          )
+          .join("\n")
+      : "1. 当前没有可用的钩子正式状态快照。";
+
   return [
     "## 项目上下文",
     `- 项目：${context.project.name}`,
@@ -164,6 +210,18 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
     characterFactionSection,
     "",
     "## 钩子上下文",
-    hookSection
+    hookSection,
+    "",
+    "## 最近正式状态",
+    latestChapterSnapshotSection,
+    "",
+    "## 最近人物状态",
+    latestCharacterStateSection,
+    "",
+    "## 最近势力状态",
+    latestFactionStateSection,
+    "",
+    "## 最近钩子状态",
+    latestHookStateSection
   ].join("\n");
 }

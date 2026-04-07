@@ -3,12 +3,16 @@ import { CharacterFactionRelationRepository } from "../../db/repositories/charac
 import { CharacterRelationRepository } from "../../db/repositories/character-relation-repository.js";
 import { CharacterRepository } from "../../db/repositories/character-repository.js";
 import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
+import { ChapterStateSnapshotRepository } from "../../db/repositories/chapter-state-snapshot-repository.js";
 import { FactionRepository } from "../../db/repositories/faction-repository.js";
+import { FactionStateSnapshotRepository } from "../../db/repositories/faction-state-snapshot-repository.js";
 import { HookChapterLinkRepository } from "../../db/repositories/hook-chapter-link-repository.js";
+import { HookStateSnapshotRepository } from "../../db/repositories/hook-state-snapshot-repository.js";
 import { LoreRepository } from "../../db/repositories/lore-repository.js";
 import { OutlineRepository } from "../../db/repositories/outline-repository.js";
 import { ProjectRepository } from "../../db/repositories/project-repository.js";
 import { StoryHookRepository } from "../../db/repositories/story-hook-repository.js";
+import { CharacterStateSnapshotRepository } from "../../db/repositories/character-state-snapshot-repository.js";
 import type {
   BuildChapterContextInput,
   ChapterGenerationContext,
@@ -29,6 +33,10 @@ export class ChapterContextBuilder {
     const characterFactionRelationRepository = new CharacterFactionRelationRepository(
       this.database
     );
+    const chapterStateSnapshotRepository = new ChapterStateSnapshotRepository(this.database);
+    const characterStateSnapshotRepository = new CharacterStateSnapshotRepository(this.database);
+    const factionStateSnapshotRepository = new FactionStateSnapshotRepository(this.database);
+    const hookStateSnapshotRepository = new HookStateSnapshotRepository(this.database);
     const hookRepository = new StoryHookRepository(this.database);
     const hookLinkRepository = new HookChapterLinkRepository(this.database);
 
@@ -63,6 +71,28 @@ export class ChapterContextBuilder {
     const allHooks = hookRepository.findAllByProjectId(input.projectId);
     const targetHooks = allHooks.filter((hook) => hook.target_chapter_id === input.chapterId);
     const activeHooks = allHooks.filter((hook) => hook.status === "active");
+    const chapterSnapshots = chapterStateSnapshotRepository
+      .findAllByProjectId(input.projectId)
+      .filter((snapshot) => snapshot.chapter_id < input.chapterId);
+    const latestChapterSnapshot = chapterSnapshots[0] ?? null;
+    const latestCharacterStates = this.pickLatestSnapshotsByKey(
+      characterStateSnapshotRepository
+        .findAllByProjectId(input.projectId)
+        .filter((snapshot) => snapshot.chapter_id < input.chapterId),
+      (snapshot) => snapshot.character_id
+    );
+    const latestFactionStates = this.pickLatestSnapshotsByKey(
+      factionStateSnapshotRepository
+        .findAllByProjectId(input.projectId)
+        .filter((snapshot) => snapshot.chapter_id < input.chapterId),
+      (snapshot) => snapshot.faction_id
+    );
+    const latestHookStates = this.pickLatestSnapshotsByKey(
+      hookStateSnapshotRepository
+        .findAllByProjectId(input.projectId)
+        .filter((snapshot) => snapshot.chapter_id < input.chapterId),
+      (snapshot) => snapshot.hook_id
+    );
 
     return {
       project,
@@ -76,8 +106,28 @@ export class ChapterContextBuilder {
       character_faction_relations: characterFactionRelations,
       hook_links: hookLinks,
       target_hooks: targetHooks,
-      active_hooks: activeHooks
+      active_hooks: activeHooks,
+      latest_chapter_snapshot: latestChapterSnapshot,
+      latest_character_states: latestCharacterStates,
+      latest_faction_states: latestFactionStates,
+      latest_hook_states: latestHookStates
     };
+  }
+
+  private pickLatestSnapshotsByKey<T>(
+    snapshots: T[],
+    resolveKey: (snapshot: T) => number
+  ): T[] {
+    const snapshotMap = new Map<number, T>();
+
+    for (const snapshot of snapshots) {
+      const key = resolveKey(snapshot);
+      if (!snapshotMap.has(key)) {
+        snapshotMap.set(key, snapshot);
+      }
+    }
+
+    return Array.from(snapshotMap.values());
   }
 
   private resolveOutlineChain(
