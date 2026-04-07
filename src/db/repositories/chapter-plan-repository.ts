@@ -85,4 +85,24 @@ export class ChapterPlanRepository {
     );
     return statement.get(chapterId);
   }
+
+  findLatestByChapterId(chapterId: number): ChapterPlanRecord | undefined {
+    const statement = this.database.prepare<[number], ChapterPlanRecord>(
+      `SELECT
+         id,
+         project_id,
+         chapter_id,
+         source_type,
+         author_intent,
+         plan_text,
+         status,
+         created_at,
+         updated_at
+       FROM chapter_plans
+       WHERE chapter_id = ?
+       ORDER BY id DESC
+       LIMIT 1`
+    );
+    return statement.get(chapterId);
+  }
 }

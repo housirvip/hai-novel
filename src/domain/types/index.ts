@@ -482,6 +482,97 @@ export interface CreateOutlineInput {
 }
 
 /**
+ * 更新大纲节点时的输入结构。
+ * V1 主要用于 `outline:set` 更新项目总纲，也可为后续通用更新接口复用。
+ */
+export interface UpdateOutlineInput {
+  /** 要更新的大纲节点 ID。 */
+  id: number;
+  /** 节点标题。 */
+  title: string;
+  /** 节点摘要。 */
+  summary?: string;
+  /** 叙事目标。 */
+  goal?: string;
+  /** 主要冲突。 */
+  conflict?: string;
+  /** 结果。 */
+  outcome?: string;
+  /** 同级排序。 */
+  position?: number;
+}
+
+/**
+ * 设置项目总纲时的输入结构。
+ * 该命令语义上要求项目只保留一条主总纲，因此 service 会执行“存在则更新，不存在则创建”。
+ */
+export interface SetStoryOutlineInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 总纲标题。 */
+  title: string;
+  /** 总纲摘要。 */
+  summary?: string;
+  /** 总纲目标。 */
+  goal?: string;
+  /** 总纲主要冲突。 */
+  conflict?: string;
+  /** 总纲预期结果。 */
+  outcome?: string;
+}
+
+/**
+ * 查看项目总纲时的返回结构。
+ * 除了总纲本体，也会顺带返回当前项目下的分卷列表，方便 CLI 一次性展示。
+ */
+export interface StoryOutlineShowResult {
+  /** 所属项目。 */
+  project: ProjectRecord;
+  /** 当前项目总纲，可为空。 */
+  outline: OutlineRecord | null;
+  /** 当前项目已有分卷列表。 */
+  volumes: OutlineListItem[];
+}
+
+/**
+ * 创建或生成分卷规划时的输入结构。
+ * 当 `fromOutline = true` 时，service 会优先依据项目总纲和附加指令生成分卷内容。
+ */
+export interface CreateVolumePlanInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 分卷标题。 */
+  title?: string;
+  /** 分卷摘要。 */
+  summary?: string;
+  /** 分卷目标。 */
+  goal?: string;
+  /** 分卷主要冲突。 */
+  conflict?: string;
+  /** 分卷预期结果。 */
+  outcome?: string;
+  /** 父大纲节点 ID；未传时默认挂到总纲下。 */
+  parentId?: number;
+  /** 额外生成指令。 */
+  instruction?: string;
+  /** 是否依据总纲自动生成。 */
+  fromOutline?: boolean;
+  /** 同级排序。 */
+  position?: number;
+}
+
+/**
+ * 分卷规划命令结果。
+ * 如果本次是根据总纲生成，则会附带生成记录 ID，方便回查。
+ */
+export interface VolumePlanResult {
+  /** 创建出的分卷大纲节点。 */
+  volume: OutlineRecord;
+  /** 生成记录 ID；纯手写创建时可为空。 */
+  generationRunId?: number;
+}
+
+/**
  * 章节实体的读取结果。
  * 对应 `chapters` 表，表示进入实际写作流程的正式章节记录。
  */
@@ -867,6 +958,17 @@ export interface ChapterPlanGenerationResult {
   generationRunId: number;
   /** 自动导出的 Markdown 绝对路径。 */
   exportPath: string;
+}
+
+/**
+ * 查看章节规划时的返回结构。
+ * 目前默认返回当前生效中的 active plan，并带出章节基础信息。
+ */
+export interface ChapterPlanShowResult {
+  /** 所属章节详情。 */
+  chapter: ChapterDetail;
+  /** 当前查看到的规划记录。 */
+  plan: ChapterPlanRecord;
 }
 
 /**

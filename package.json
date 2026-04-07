@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli/index.ts",
+    "test": "npm run build && node --test test/**/*.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {

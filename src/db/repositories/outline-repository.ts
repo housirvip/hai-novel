@@ -2,7 +2,8 @@ import type Database from "better-sqlite3";
 import type {
   CreateOutlineInput,
   OutlineListItem,
-  OutlineRecord
+  OutlineRecord,
+  UpdateOutlineInput
 } from "../../domain/types/index.js";
 
 export class OutlineRepository {
@@ -49,6 +50,47 @@ export class OutlineRepository {
     return outline;
   }
 
+  update(input: UpdateOutlineInput): OutlineRecord {
+    const statement = this.database.prepare<
+      [
+        string,
+        string | null,
+        string | null,
+        string | null,
+        string | null,
+        number,
+        number
+      ]
+    >(
+      `UPDATE outlines
+       SET title = ?,
+           summary = ?,
+           goal = ?,
+           conflict = ?,
+           outcome = ?,
+           position = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    );
+
+    statement.run(
+      input.title,
+      input.summary ?? null,
+      input.goal ?? null,
+      input.conflict ?? null,
+      input.outcome ?? null,
+      input.position ?? 0,
+      input.id
+    );
+
+    const outline = this.findById(input.id);
+    if (!outline) {
+      throw new Error(`Outline ${input.id} not found after update.`);
+    }
+
+    return outline;
+  }
+
   findAllByProjectId(projectId: number): OutlineListItem[] {
     // 大纲列表需要带出父节点标题，方便在 CLI 里快速看树形关系。
     const statement = this.database.prepare<[number], OutlineListItem>(
@@ -74,6 +116,30 @@ export class OutlineRepository {
     return statement.all(projectId);
   }
 
+  findAllByProjectIdAndType(projectId: number, nodeType: string): OutlineListItem[] {
+    const statement = this.database.prepare<[number, string], OutlineListItem>(
+      `SELECT
+         o.id,
+         o.project_id,
+         o.parent_id,
+         o.node_type,
+         o.title,
+         o.summary,
+         o.goal,
+         o.conflict,
+         o.outcome,
+         o.position,
+         o.created_at,
+         o.updated_at,
+         parent.title AS parent_title
+       FROM outlines o
+       LEFT JOIN outlines parent ON parent.id = o.parent_id
+       WHERE o.project_id = ? AND o.node_type = ?
+       ORDER BY o.position ASC, o.id ASC`
+    );
+    return statement.all(projectId, nodeType);
+  }
+
   findById(id: number): OutlineRecord | undefined {
     const statement = this.database.prepare<[number], OutlineRecord>(
       `SELECT
@@ -93,5 +159,31 @@ export class OutlineRepository {
        WHERE id = ?`
     );
     return statement.get(id);
+  }
+
+  findFirstByProjectIdAndType(
+    projectId: number,
+    nodeType: string
+  ): OutlineRecord | undefined {
+    const statement = this.database.prepare<[number, string], OutlineRecord>(
+      `SELECT
+         id,
+         project_id,
+         parent_id,
+         node_type,
+         title,
+         summary,
+         goal,
+         conflict,
+         outcome,
+         position,
+         created_at,
+         updated_at
+       FROM outlines
+       WHERE project_id = ? AND node_type = ?
+       ORDER BY position ASC, id ASC
+       LIMIT 1`
+    );
+    return statement.get(projectId, nodeType);
   }
 }
