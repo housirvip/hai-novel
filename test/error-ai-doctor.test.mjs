@@ -268,6 +268,10 @@ test("核心命令帮助文本会展示示例", () => {
   assert.match(draftImportHelp, /Examples:/);
   assert.match(draftImportHelp, /novel draft import --draft 1 --input exports\/chapter-001-draft.md/);
 
+  const stateShowHelp = runBuiltCli(workspace, ["state", "show", "--help"]);
+  assert.match(stateShowHelp, /Examples:/);
+  assert.match(stateShowHelp, /novel state show --project 1 --chapter 1/);
+
   const runHelp = runBuiltCli(workspace, ["run", "export", "--help"]);
   assert.match(runHelp, /Examples:/);
   assert.match(runHelp, /novel run export --id 8 --section all --format md/);

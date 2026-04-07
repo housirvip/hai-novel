@@ -1140,6 +1140,227 @@ export interface ChapterExportResult {
 }
 
 /**
+ * 章节状态快照执行状态。
+ * 用于标记 approve 后的状态提取结果是否已经成功落库。
+ */
+export type ChapterSnapshotStatus = "pending" | "applied" | "failed";
+
+/**
+ * 钩子进度快照状态。
+ * V2 先只做轻量枚举，方便命令行查看章节推进结果。
+ */
+export type HookProgressStatus = "pending" | "started" | "advanced" | "resolved";
+
+/**
+ * 章节状态快照实体。
+ * 对应 `chapter_state_snapshots` 表，表示某章正式文稿生效后的状态提取结果。
+ */
+export interface ChapterStateSnapshotRecord {
+  /** 快照主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 来源章节 ID。 */
+  chapter_id: number;
+  /** 来源草稿 ID，可为空。 */
+  source_draft_id: number | null;
+  /** 快照状态。 */
+  status: ChapterSnapshotStatus;
+  /** 快照摘要，可为空。 */
+  summary: string | null;
+  /** 原始提取结果 JSON，可为空。 */
+  raw_payload: string | null;
+  /** 正式应用时间，可为空。 */
+  applied_at: string | null;
+  /** 创建时间。 */
+  created_at: string;
+}
+
+/**
+ * 角色状态快照实体。
+ * 对应 `character_state_snapshots` 表，表示角色在某章正式文稿后的状态记录。
+ */
+export interface CharacterStateSnapshotRecord {
+  /** 快照主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 角色 ID。 */
+  character_id: number;
+  /** 来源章节 ID。 */
+  chapter_id: number;
+  /** 关联章节快照 ID。 */
+  chapter_snapshot_id: number;
+  /** 状态摘要，可为空。 */
+  status_summary: string | null;
+  /** 当前地点，可为空。 */
+  location: string | null;
+  /** 当前目标，可为空。 */
+  goal: string | null;
+  /** 外部可见印象，可为空。 */
+  public_impression: string | null;
+  /** 内在状态，可为空。 */
+  internal_state: string | null;
+  /** 创建时间。 */
+  created_at: string;
+}
+
+/**
+ * 势力状态快照实体。
+ * 对应 `faction_state_snapshots` 表，表示势力在某章正式文稿后的状态记录。
+ */
+export interface FactionStateSnapshotRecord {
+  /** 快照主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 势力 ID。 */
+  faction_id: number;
+  /** 来源章节 ID。 */
+  chapter_id: number;
+  /** 关联章节快照 ID。 */
+  chapter_snapshot_id: number;
+  /** 状态摘要，可为空。 */
+  status_summary: string | null;
+  /** 权力变化说明，可为空。 */
+  power_shift: string | null;
+  /** 对外关系摘要，可为空。 */
+  external_relation_summary: string | null;
+  /** 创建时间。 */
+  created_at: string;
+}
+
+/**
+ * 钩子状态快照实体。
+ * 对应 `hook_state_snapshots` 表，表示某个钩子在本章正式文稿后的推进状态。
+ */
+export interface HookStateSnapshotRecord {
+  /** 快照主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 钩子 ID。 */
+  hook_id: number;
+  /** 来源章节 ID。 */
+  chapter_id: number;
+  /** 关联章节快照 ID。 */
+  chapter_snapshot_id: number;
+  /** 钩子推进状态。 */
+  progress_status: HookProgressStatus;
+  /** 推进说明，可为空。 */
+  progress_note: string | null;
+  /** 创建时间。 */
+  created_at: string;
+}
+
+/**
+ * 创建章节状态快照时的输入结构。
+ */
+export interface CreateChapterStateSnapshotInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 来源草稿 ID。 */
+  sourceDraftId?: number;
+  /** 快照状态。 */
+  status: ChapterSnapshotStatus;
+  /** 摘要。 */
+  summary?: string;
+  /** 原始 JSON 结果。 */
+  rawPayload?: string;
+  /** 是否立即标记为已应用。 */
+  applied?: boolean;
+}
+
+/**
+ * 创建角色状态快照时的输入结构。
+ */
+export interface CreateCharacterStateSnapshotInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 角色 ID。 */
+  characterId: number;
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 关联章节快照 ID。 */
+  chapterSnapshotId: number;
+  /** 状态摘要。 */
+  statusSummary?: string;
+  /** 当前地点。 */
+  location?: string;
+  /** 当前目标。 */
+  goal?: string;
+  /** 外部印象。 */
+  publicImpression?: string;
+  /** 内在状态。 */
+  internalState?: string;
+}
+
+/**
+ * 创建势力状态快照时的输入结构。
+ */
+export interface CreateFactionStateSnapshotInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 势力 ID。 */
+  factionId: number;
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 关联章节快照 ID。 */
+  chapterSnapshotId: number;
+  /** 状态摘要。 */
+  statusSummary?: string;
+  /** 权力变化说明。 */
+  powerShift?: string;
+  /** 对外关系摘要。 */
+  externalRelationSummary?: string;
+}
+
+/**
+ * 创建钩子状态快照时的输入结构。
+ */
+export interface CreateHookStateSnapshotInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 钩子 ID。 */
+  hookId: number;
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 关联章节快照 ID。 */
+  chapterSnapshotId: number;
+  /** 推进状态。 */
+  progressStatus: HookProgressStatus;
+  /** 推进说明。 */
+  progressNote?: string;
+}
+
+/**
+ * 查询状态快照时的输入结构。
+ */
+export interface ShowStateInput {
+  /** 项目 ID。 */
+  projectId: number;
+  /** 可选章节 ID。 */
+  chapterId?: number;
+}
+
+/**
+ * 状态快照查看结果。
+ * 命令层可直接把章节快照和关联对象快照一起输出。
+ */
+export interface StateShowResult {
+  /** 匹配到的章节状态快照。 */
+  chapterSnapshots: ChapterStateSnapshotRecord[];
+  /** 匹配到的角色状态快照。 */
+  characterSnapshots: CharacterStateSnapshotRecord[];
+  /** 匹配到的势力状态快照。 */
+  factionSnapshots: FactionStateSnapshotRecord[];
+  /** 匹配到的钩子状态快照。 */
+  hookSnapshots: HookStateSnapshotRecord[];
+}
+
+/**
  * 生成记录实体的读取结果。
  * 对应 `generation_runs` 表，用于追踪每次 plan/draft/review 等 AI 生成动作。
  */

@@ -290,3 +290,103 @@ test("plan 和 draft 导出的 Markdown 支持手工修改后回写", async () =
   const chapterDetail = chapterService.showChapter(chapter.id);
   assert.match(chapterDetail.chapter.final_text ?? "", /作者手工修订后的草稿正文/);
 });
+
+test("draft approve 后会写入章节、人物、势力和钩子状态快照", async () => {
+  const workspace = createWorkspace("hai-novel-state-sync-");
+  const context = await initWorkspace(workspace);
+
+  const { DraftService } = await importDist("app/services/draft-service.js");
+  const { StateService } = await importDist("app/services/state-service.js");
+  const { ProjectRepository } = await importDist("db/repositories/project-repository.js");
+  const { ChapterRepository } = await importDist("db/repositories/chapter-repository.js");
+  const { ChapterDraftRepository } = await importDist(
+    "db/repositories/chapter-draft-repository.js"
+  );
+  const { CharacterRepository } = await importDist("db/repositories/character-repository.js");
+  const { FactionRepository } = await importDist("db/repositories/faction-repository.js");
+  const { StoryHookRepository } = await importDist("db/repositories/story-hook-repository.js");
+  const { HookChapterLinkRepository } = await importDist(
+    "db/repositories/hook-chapter-link-repository.js"
+  );
+
+  const { database } = await openWorkspaceDatabase(workspace);
+  try {
+    const projectRepository = new ProjectRepository(database);
+    const chapterRepository = new ChapterRepository(database);
+    const draftRepository = new ChapterDraftRepository(database);
+    const characterRepository = new CharacterRepository(database);
+    const factionRepository = new FactionRepository(database);
+    const hookRepository = new StoryHookRepository(database);
+    const hookLinkRepository = new HookChapterLinkRepository(database);
+
+    const project = projectRepository.create({
+      name: "状态快照测试",
+      genre: "仙侠",
+      premise: "主角卷入宗门纷争",
+      style: "克制"
+    });
+    const chapter = chapterRepository.create({
+      projectId: project.id,
+      title: "第001章 雨夜入宗",
+      summary: "林渡夜入青岚宗，黑玉佩出现异动"
+    });
+    const faction = factionRepository.create({
+      projectId: project.id,
+      name: "青岚宗",
+      type: "宗门",
+      stance: "正道"
+    });
+    const character = characterRepository.create({
+      projectId: project.id,
+      name: "林渡",
+      role: "protagonist",
+      factionId: faction.id,
+      profession: "外门弟子"
+    });
+    const hook = hookRepository.create({
+      projectId: project.id,
+      title: "黑玉佩的来历",
+      hookType: "mystery",
+      summary: "黑玉佩忽然发热",
+      targetChapterId: chapter.id
+    });
+    hookLinkRepository.create({
+      projectId: project.id,
+      hookId: hook.id,
+      chapterId: chapter.id,
+      linkType: "setup",
+      plannedNote: "本章通过玉佩异动埋下疑团",
+      status: "planned"
+    });
+
+    const draft = draftRepository.create({
+      projectId: project.id,
+      chapterId: chapter.id,
+      draftText:
+        "林渡冒雨站在青岚宗山门前，怀里的黑玉佩忽然发热，让他不敢再低头装作无事。",
+      status: "generated"
+    });
+
+    const draftService = new DraftService(context);
+    const approveResult = await draftService.reviewDraft({
+      draftId: draft.id,
+      action: "approve"
+    });
+    assert.equal(approveResult.draft.status, "approved");
+
+    const stateService = new StateService(context);
+    const stateResult = stateService.showState({
+      projectId: project.id,
+      chapterId: chapter.id
+    });
+    assert.equal(stateResult.chapterSnapshots.length, 1);
+    assert.equal(stateResult.characterSnapshots.length, 1);
+    assert.equal(stateResult.factionSnapshots.length, 1);
+    assert.equal(stateResult.hookSnapshots.length, 1);
+    assert.match(stateResult.chapterSnapshots[0].summary ?? "", /角色提及 1 个/);
+    assert.equal(stateResult.hookSnapshots[0].progress_status, "advanced");
+    assert.match(stateResult.characterSnapshots[0].status_summary ?? "", /林渡/);
+  } finally {
+    database.close();
+  }
+});

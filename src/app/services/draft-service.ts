@@ -31,6 +31,7 @@ import { ChapterContextBuilder } from "./chapter-context-builder.js";
 import { relativeToAppRoot, type RuntimeContext } from "./context-service.js";
 import { ChapterService } from "./chapter-service.js";
 import { MarkdownSyncService } from "./markdown-sync-service.js";
+import { StateSyncService } from "./state-sync-service.js";
 
 export class DraftService {
   constructor(private readonly context: RuntimeContext) {}
@@ -244,19 +245,40 @@ export class DraftService {
       const reviewReport = this.serializeIssues(issues);
 
       logger.progress("draft:review 2/3 批准草稿并同步 final");
-      const approvedDraft = draftRepository.updateReview(input.draftId, {
-        status: "approved",
-        reviewNotes: input.notes ?? draft.review_notes,
-        reviewReport
-      });
-      chapterRepository.approveDraft(draft.chapter_id, draft.id, approvedDraft.draft_text);
+      const stateSyncService = new StateSyncService(database);
+      const approvalResult = database.transaction(() => {
+        const approvedDraft = draftRepository.updateReview(input.draftId, {
+          status: "approved",
+          reviewNotes: input.notes ?? draft.review_notes,
+          reviewReport
+        });
+        chapterRepository.approveDraft(draft.chapter_id, draft.id, approvedDraft.draft_text);
+        const stateSyncResult = stateSyncService.syncApprovedChapter({
+          projectId: draft.project_id,
+          chapterId: draft.chapter_id,
+          draftId: draft.id,
+          finalText: approvedDraft.draft_text
+        });
+
+        return {
+          approvedDraft,
+          stateSyncResult
+        };
+      })();
 
       const run = runRepository.create({
         projectId: draft.project_id,
         chapterId: draft.chapter_id,
         runType: "draft_review_approve",
-        inputContext: approvedDraft.draft_text,
-        outputText: reviewReport,
+        inputContext: approvalResult.approvedDraft.draft_text,
+        outputText: [
+          reviewReport,
+          "",
+          `state_sync: chapter_snapshot=${approvalResult.stateSyncResult.chapterSnapshot.id}`,
+          `state_sync: characters=${approvalResult.stateSyncResult.characterSnapshotCount}`,
+          `state_sync: factions=${approvalResult.stateSyncResult.factionSnapshotCount}`,
+          `state_sync: hooks=${approvalResult.stateSyncResult.hookSnapshotCount}`
+        ].join("\n"),
         model: "rule-reviewer-v1",
         status: "success"
       });
@@ -272,13 +294,13 @@ export class DraftService {
         `draft:review action=approve draft=${input.draftId} export=${exportResult.exportPath}`
       );
 
-      return {
-        action: input.action,
-        draft: approvedDraft,
-        issues,
-        generationRunId: run.id,
-        exportPath: exportResult.exportPath
-      };
+        return {
+          action: input.action,
+          draft: approvalResult.approvedDraft,
+          issues,
+          generationRunId: run.id,
+          exportPath: exportResult.exportPath
+        };
     } finally {
       database.close();
     }

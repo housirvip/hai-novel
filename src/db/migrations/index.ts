@@ -260,5 +260,91 @@ export const migrations: MigrationDefinition[] = [
       ALTER TABLE chapter_drafts ADD COLUMN last_imported_at TEXT;
       ALTER TABLE chapter_drafts ADD COLUMN updated_from TEXT NOT NULL DEFAULT 'ai_generate';
     `
+  },
+  {
+    id: "004_state_snapshot_tables",
+    sql: `
+      -- 为 approve 后的正式状态同步建立章节级和对象级快照表。
+      CREATE TABLE IF NOT EXISTS chapter_state_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        chapter_id INTEGER NOT NULL,
+        source_draft_id INTEGER,
+        status TEXT NOT NULL DEFAULT 'applied',
+        summary TEXT,
+        raw_payload TEXT,
+        applied_at TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+        FOREIGN KEY (source_draft_id) REFERENCES chapter_drafts(id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS character_state_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        character_id INTEGER NOT NULL,
+        chapter_id INTEGER NOT NULL,
+        chapter_snapshot_id INTEGER NOT NULL,
+        status_summary TEXT,
+        location TEXT,
+        goal TEXT,
+        public_impression TEXT,
+        internal_state TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+        FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+        FOREIGN KEY (chapter_snapshot_id) REFERENCES chapter_state_snapshots(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS faction_state_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        faction_id INTEGER NOT NULL,
+        chapter_id INTEGER NOT NULL,
+        chapter_snapshot_id INTEGER NOT NULL,
+        status_summary TEXT,
+        power_shift TEXT,
+        external_relation_summary TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (faction_id) REFERENCES factions(id) ON DELETE CASCADE,
+        FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+        FOREIGN KEY (chapter_snapshot_id) REFERENCES chapter_state_snapshots(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS hook_state_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        hook_id INTEGER NOT NULL,
+        chapter_id INTEGER NOT NULL,
+        chapter_snapshot_id INTEGER NOT NULL,
+        progress_status TEXT NOT NULL DEFAULT 'pending',
+        progress_note TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (hook_id) REFERENCES story_hooks(id) ON DELETE CASCADE,
+        FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+        FOREIGN KEY (chapter_snapshot_id) REFERENCES chapter_state_snapshots(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_chapter_state_snapshots_project_id
+      ON chapter_state_snapshots(project_id);
+      CREATE INDEX IF NOT EXISTS idx_chapter_state_snapshots_chapter_id
+      ON chapter_state_snapshots(chapter_id);
+      CREATE INDEX IF NOT EXISTS idx_character_state_snapshots_character_id
+      ON character_state_snapshots(character_id);
+      CREATE INDEX IF NOT EXISTS idx_character_state_snapshots_chapter_snapshot_id
+      ON character_state_snapshots(chapter_snapshot_id);
+      CREATE INDEX IF NOT EXISTS idx_faction_state_snapshots_faction_id
+      ON faction_state_snapshots(faction_id);
+      CREATE INDEX IF NOT EXISTS idx_faction_state_snapshots_chapter_snapshot_id
+      ON faction_state_snapshots(chapter_snapshot_id);
+      CREATE INDEX IF NOT EXISTS idx_hook_state_snapshots_hook_id
+      ON hook_state_snapshots(hook_id);
+      CREATE INDEX IF NOT EXISTS idx_hook_state_snapshots_chapter_snapshot_id
+      ON hook_state_snapshots(chapter_snapshot_id);
+    `
   }
 ];

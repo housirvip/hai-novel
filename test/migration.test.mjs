@@ -19,7 +19,8 @@ test("初始化可重复执行，且 generation_runs 包含模板快照字段", 
     assert.deepEqual(migrations, [
       "001_initial_schema",
       "002_generation_runs_template_metadata",
-      "003_markdown_roundtrip_metadata"
+      "003_markdown_roundtrip_metadata",
+      "004_state_snapshot_tables"
     ]);
 
     const columns = database
@@ -51,6 +52,31 @@ test("初始化可重复执行，且 generation_runs 包含模板快照字段", 
     assert.equal(draftColumns.includes("last_exported_at"), true);
     assert.equal(draftColumns.includes("last_imported_at"), true);
     assert.equal(draftColumns.includes("updated_from"), true);
+
+    const chapterSnapshotColumns = database
+      .prepare("PRAGMA table_info(chapter_state_snapshots)")
+      .all()
+      .map((column) => column.name);
+    assert.equal(chapterSnapshotColumns.includes("source_draft_id"), true);
+    assert.equal(chapterSnapshotColumns.includes("raw_payload"), true);
+
+    const characterSnapshotColumns = database
+      .prepare("PRAGMA table_info(character_state_snapshots)")
+      .all()
+      .map((column) => column.name);
+    assert.equal(characterSnapshotColumns.includes("chapter_snapshot_id"), true);
+
+    const factionSnapshotColumns = database
+      .prepare("PRAGMA table_info(faction_state_snapshots)")
+      .all()
+      .map((column) => column.name);
+    assert.equal(factionSnapshotColumns.includes("chapter_snapshot_id"), true);
+
+    const hookSnapshotColumns = database
+      .prepare("PRAGMA table_info(hook_state_snapshots)")
+      .all()
+      .map((column) => column.name);
+    assert.equal(hookSnapshotColumns.includes("chapter_snapshot_id"), true);
   } finally {
     database.close();
   }
