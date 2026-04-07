@@ -183,6 +183,8 @@ export OPENAI_API_KEY="your_key"
 ```bash
 npm run dev -- ai status
 npm run dev -- ai doctor
+npm run dev -- ai doctor --section config
+npm run dev -- ai doctor --section network
 ```
 
 ## 生成历史导出

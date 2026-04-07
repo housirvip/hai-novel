@@ -17,6 +17,7 @@ import { registerPromptCommands } from "./commands/prompt-command.js";
 import { registerRelationCommands } from "./commands/relation-command.js";
 import { registerRunCommands } from "./commands/run-command.js";
 import { registerVolumeCommands } from "./commands/volume-command.js";
+import { presentCliError } from "../utils/error-presenter.js";
 import { logger } from "../utils/logger.js";
 
 const program = new Command();
@@ -50,7 +51,10 @@ try {
   // 命令注册统一收口在这里，后续新增模块只需要接入一个入口。
   await program.parseAsync(process.argv);
 } catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  logger.error(message);
+  const presented = presentCliError(error);
+  logger.error(`[${presented.code}] ${presented.message}`);
+  if (presented.hint) {
+    logger.info(`hint: ${presented.hint}`);
+  }
   process.exitCode = 1;
 }

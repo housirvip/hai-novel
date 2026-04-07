@@ -1,0 +1,93 @@
+export interface PresentedCliError {
+  /** 错误分类代码，方便命令行快速辨识问题类型。 */
+  code: string;
+  /** 面向用户的错误正文。 */
+  message: string;
+  /** 可选修复提示。 */
+  hint?: string;
+}
+
+/**
+ * 把运行时错误转成更适合 CLI 展示的结构。
+ * V1 先用一套轻量规则做分类，优先覆盖最常见的失败场景。
+ */
+export function presentCliError(error: unknown): PresentedCliError {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.includes("Workspace is not initialized")) {
+    return {
+      code: "PRECONDITION",
+      message,
+      hint: "先在当前工作区执行 `novel init`，再继续其他数据命令。"
+    };
+  }
+
+  if (message.includes("must be an integer")) {
+    return {
+      code: "ARGUMENT",
+      message,
+      hint: "检查对应选项是否传入了有效数字，例如 `--project 1`、`--chapter 3`。"
+    };
+  }
+
+  if (message.includes("No plan found for chapter")) {
+    return {
+      code: "MISSING_PLAN",
+      message,
+      hint: "先执行 `novel chapter plan --project <id> --chapter <id>` 生成本章 plan。"
+    };
+  }
+
+  if (message.includes("No draft found for chapter")) {
+    return {
+      code: "MISSING_DRAFT",
+      message,
+      hint: "先执行 `novel draft write --project <id> --chapter <id>` 生成草稿。"
+    };
+  }
+
+  if (message.includes("No final text found for chapter")) {
+    return {
+      code: "MISSING_FINAL",
+      message,
+      hint: "先对草稿执行 `novel draft review --draft <id> --action approve`，再导出 final。"
+    };
+  }
+
+  if (message.includes("OpenAI provider requires `OPENAI_API_KEY`")) {
+    return {
+      code: "AI_CONFIG",
+      message,
+      hint: "配置 `OPENAI_API_KEY`，或把 `novel.config.json` 里的 `ai.provider` 切回 `mock`。"
+    };
+  }
+
+  if (message.includes("No story outline found")) {
+    return {
+      code: "MISSING_OUTLINE",
+      message,
+      hint: "先执行 `novel outline set --project <id> ...` 设置整本小说总纲。"
+    };
+  }
+
+  if (message.includes("Volume title is required")) {
+    return {
+      code: "ARGUMENT",
+      message,
+      hint: "手写分卷时传 `--title`，或改用 `--from-outline` 让系统依据总纲自动生成。"
+    };
+  }
+
+  if (message.includes("not found")) {
+    return {
+      code: "NOT_FOUND",
+      message,
+      hint: "先用对应的 list/show 命令确认记录 ID 是否存在，再重新执行当前命令。"
+    };
+  }
+
+  return {
+    code: "RUNTIME",
+    message
+  };
+}

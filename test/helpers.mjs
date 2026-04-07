@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -56,13 +56,37 @@ export function hasWorkspaceFile(workspace, ...segments) {
 /**
  * 运行编译后的 CLI，适合做端到端命令测试。
  */
-export function runBuiltCli(cwd, args) {
+export function runBuiltCli(cwd, args, options = {}) {
   const cliEntry = path.join(rootDir, "dist", "cli", "index.js");
   return execFileSync(process.execPath, [cliEntry, ...args], {
     cwd,
     encoding: "utf8",
     env: {
-      ...process.env
+      ...process.env,
+      ...(options.env ?? {})
     }
   });
+}
+
+/**
+ * 运行编译后的 CLI，并返回失败时的退出码与输出。
+ * 用于验证错误提示、帮助文案和边界场景。
+ */
+export function runBuiltCliResult(cwd, args, options = {}) {
+  const cliEntry = path.join(rootDir, "dist", "cli", "index.js");
+  const result = spawnSync(process.execPath, [cliEntry, ...args], {
+    cwd,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ...(options.env ?? {})
+    }
+  });
+
+  return {
+    status: result.status ?? 0,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+    output: `${result.stdout ?? ""}${result.stderr ?? ""}`
+  };
 }
