@@ -315,3 +315,295 @@ export interface CreateCharacterFactionRelationInput {
   /** 是否设置为主归属。 */
   isPrimary?: boolean;
 }
+
+/**
+ * 大纲节点的读取结果。
+ * 对应 `outlines` 表，可表示总纲、分卷、章节节点或场景节点。
+ */
+export interface OutlineRecord {
+  /** 大纲节点自增主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 父节点 ID，可为空。 */
+  parent_id: number | null;
+  /** 节点类型，例如 story / volume / chapter / scene。 */
+  node_type: string;
+  /** 节点标题。 */
+  title: string;
+  /** 节点摘要。 */
+  summary: string | null;
+  /** 该节点的叙事目标。 */
+  goal: string | null;
+  /** 该节点的主要冲突。 */
+  conflict: string | null;
+  /** 该节点的预期结果。 */
+  outcome: string | null;
+  /** 同级排序号。 */
+  position: number;
+  /** 创建时间。 */
+  created_at: string;
+  /** 最近更新时间。 */
+  updated_at: string;
+}
+
+/**
+ * 大纲列表项。
+ * 额外带出父节点标题，方便命令行直接查看树形关系。
+ */
+export interface OutlineListItem extends OutlineRecord {
+  /** 父节点标题，可为空。 */
+  parent_title: string | null;
+}
+
+/**
+ * 创建大纲节点时的输入结构。
+ */
+export interface CreateOutlineInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 父节点 ID。 */
+  parentId?: number;
+  /** 节点类型。 */
+  nodeType: string;
+  /** 节点标题。 */
+  title: string;
+  /** 节点摘要。 */
+  summary?: string;
+  /** 叙事目标。 */
+  goal?: string;
+  /** 主要冲突。 */
+  conflict?: string;
+  /** 结果。 */
+  outcome?: string;
+  /** 同级排序。 */
+  position?: number;
+}
+
+/**
+ * 章节实体的读取结果。
+ * 对应 `chapters` 表，表示进入实际写作流程的正式章节记录。
+ */
+export interface ChapterRecord {
+  /** 章节自增主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 关联的大纲节点 ID，可为空。 */
+  outline_id: number | null;
+  /** 章节标题。 */
+  title: string;
+  /** 章节摘要。 */
+  summary: string | null;
+  /** 章节当前状态。 */
+  status: string;
+  /** 正式文稿正文，可为空。 */
+  final_text: string | null;
+  /** 已批准草稿 ID，可为空。 */
+  approved_draft_id: number | null;
+  /** 创建时间。 */
+  created_at: string;
+  /** 最近更新时间。 */
+  updated_at: string;
+}
+
+/**
+ * 章节详情项。
+ * 额外带出关联大纲标题，方便 show 命令直接展示。
+ */
+export interface ChapterDetail extends ChapterRecord {
+  /** 关联大纲标题，可为空。 */
+  outline_title: string | null;
+}
+
+/**
+ * 创建章节时的输入结构。
+ */
+export interface CreateChapterInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 关联大纲节点 ID。 */
+  outlineId?: number;
+  /** 章节标题。 */
+  title: string;
+  /** 章节摘要。 */
+  summary?: string;
+}
+
+/**
+ * 钩子实体的读取结果。
+ * 对应 `story_hooks` 表，用于追踪伏笔、谜团和承诺线的生命周期。
+ */
+export interface StoryHookRecord {
+  /** 钩子自增主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 钩子标题。 */
+  title: string;
+  /** 钩子类型。 */
+  hook_type: string;
+  /** 钩子摘要。 */
+  summary: string | null;
+  /** 设钩说明。 */
+  setup_text: string | null;
+  /** 回收目标说明。 */
+  payoff_text: string | null;
+  /** 钩子当前状态。 */
+  status: string;
+  /** 优先级。 */
+  priority: number | null;
+  /** 首次埋钩章节 ID。 */
+  start_chapter_id: number | null;
+  /** 计划回收章节 ID。 */
+  target_chapter_id: number | null;
+  /** 实际结束章节 ID。 */
+  end_chapter_id: number | null;
+  /** 创建时间。 */
+  created_at: string;
+  /** 最近更新时间。 */
+  updated_at: string;
+}
+
+/**
+ * 钩子列表项。
+ * 额外带出起始章、目标章、结束章的标题，方便命令行查看状态。
+ */
+export interface StoryHookListItem extends StoryHookRecord {
+  /** 首次埋钩章节标题。 */
+  start_chapter_title: string | null;
+  /** 目标回收章节标题。 */
+  target_chapter_title: string | null;
+  /** 实际结束章节标题。 */
+  end_chapter_title: string | null;
+}
+
+/**
+ * 创建钩子时的输入结构。
+ */
+export interface CreateStoryHookInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 钩子标题。 */
+  title: string;
+  /** 钩子类型。 */
+  hookType: string;
+  /** 钩子摘要。 */
+  summary?: string;
+  /** 设钩说明。 */
+  setupText?: string;
+  /** 回收目标说明。 */
+  payoffText?: string;
+  /** 优先级。 */
+  priority?: number;
+  /** 目标回收章节 ID。 */
+  targetChapterId?: number;
+}
+
+/**
+ * 更新钩子整体状态时的输入结构。
+ * 这里只允许更新状态和关键章节信息，避免 update 语义过于发散。
+ */
+export interface UpdateStoryHookInput {
+  /** 钩子 ID。 */
+  hookId: number;
+  /** 更新后的状态。 */
+  status?: string;
+  /** 首次埋钩章节 ID。 */
+  startChapterId?: number;
+  /** 目标回收章节 ID。 */
+  targetChapterId?: number;
+  /** 实际结束章节 ID。 */
+  endChapterId?: number;
+}
+
+/**
+ * 钩子与章节关联记录。
+ * 对应 `hook_chapter_links` 表，表示某章对钩子做了“准备埋 / 埋下 / 推进 / 回收”等动作。
+ */
+export interface HookChapterLinkRecord {
+  /** 关联记录主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 钩子 ID。 */
+  hook_id: number;
+  /** 章节 ID。 */
+  chapter_id: number;
+  /** 关联类型，例如 setup / advance / reveal / close。 */
+  link_type: string;
+  /** 章节规划阶段的处理说明。 */
+  planned_note: string | null;
+  /** 正文实际落地说明。 */
+  actual_note: string | null;
+  /** 当前执行状态，例如 planned / done / skipped。 */
+  status: string;
+  /** 创建时间。 */
+  created_at: string;
+  /** 最近更新时间。 */
+  updated_at: string;
+}
+
+/**
+ * 钩子关联列表项。
+ * 额外带出章节标题，方便在 hook show 时直接查看时间线。
+ */
+export interface HookChapterLinkListItem extends HookChapterLinkRecord {
+  /** 章节标题。 */
+  chapter_title: string;
+}
+
+/**
+ * 从章节视角查看钩子关联时的列表项。
+ * 这类结构主要用于 `chapter show`，让命令行可以直接看到本章涉及哪些钩子。
+ */
+export interface ChapterHookLinkListItem extends HookChapterLinkRecord {
+  /** 钩子标题。 */
+  hook_title: string;
+  /** 钩子类型。 */
+  hook_type: string;
+  /** 钩子当前整体状态。 */
+  hook_status: string;
+}
+
+/**
+ * 创建钩子与章节关联时的输入结构。
+ */
+export interface CreateHookChapterLinkInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 钩子 ID。 */
+  hookId: number;
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 关联类型。 */
+  linkType: string;
+  /** 计划说明。 */
+  plannedNote?: string;
+  /** 实际说明。 */
+  actualNote?: string;
+  /** 执行状态。 */
+  status?: string;
+}
+
+/**
+ * 章节详情的聚合结果。
+ * 除了章节主记录外，还会把本章关联的钩子时间线一起带出来。
+ */
+export interface ChapterShowResult {
+  /** 章节主体信息。 */
+  chapter: ChapterDetail;
+  /** 本章涉及的钩子关联列表。 */
+  hook_links: ChapterHookLinkListItem[];
+}
+
+/**
+ * 钩子详情的聚合结果。
+ * 用于 `hook show`，一次性返回钩子主体与各章节关联时间线。
+ */
+export interface StoryHookDetail {
+  /** 钩子主体信息。 */
+  hook: StoryHookListItem;
+  /** 钩子在各章节上的推进记录。 */
+  chapter_links: HookChapterLinkListItem[];
+}

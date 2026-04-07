@@ -2,8 +2,11 @@
 
 import { Command } from "commander";
 import { registerCharacterCommands } from "./commands/character-command.js";
+import { registerChapterCommands } from "./commands/chapter-command.js";
 import { registerFactionCommands } from "./commands/faction-command.js";
+import { registerHookCommands } from "./commands/hook-command.js";
 import { registerInitCommand } from "./commands/init-command.js";
+import { registerOutlineCommands } from "./commands/outline-command.js";
 import { registerProjectCommands } from "./commands/project-command.js";
 import { registerRelationCommands } from "./commands/relation-command.js";
 import { logger } from "../utils/logger.js";
@@ -20,6 +23,9 @@ registerProjectCommands(program);
 registerFactionCommands(program);
 registerCharacterCommands(program);
 registerRelationCommands(program);
+registerOutlineCommands(program);
+registerChapterCommands(program);
+registerHookCommands(program);
 
 program.showHelpAfterError();
 
