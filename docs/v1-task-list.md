@@ -5,28 +5,24 @@
 ## 0. 当前进度快照
 
 - 当前整体进度：
-  - 按“主流程可用度”估算，约为 `80% ~ 85%`
-  - 按“v1-plan 全量承诺项”估算，约为 `70% ~ 75%`
+  - 按“主流程可用度”估算，约为 `85% ~ 90%`
+  - 按“v1-plan 全量承诺项”估算，约为 `78% ~ 82%`
 - 已基本完成的阶段：
   - `Phase 1` 到 `Phase 3`
-  - `Phase 5` 到 `Phase 12`
+  - `Phase 4` 到 `Phase 13`
 - 部分完成的阶段：
-  - `Phase 4`：已具备 `init / project / lore / outline:add / outline:list`，但 `outline:set / outline:show / volume:*` 还未补齐
-  - `Phase 13`：日志体系和主要长流程日志已完成，但失败分类和覆盖范围仍可继续增强
+  - `Phase 14`：已补 README 和最小 CLI 集成测试，但测试覆盖仍不完整
 - 主要未完成项：
-  - `outline:set`
-  - `outline:show`
-  - `volume:plan`
-  - `volume:list`
-  - `plan:show`
-  - 自动化测试与 README 收尾
+  - migration / repository / context builder / prompt builder 测试
+  - 导出逻辑与 review 流程更完整的自动化测试
+  - 帮助文本和错误分类继续打磨
 
 建议把接下来的收口优先级定为：
 
-1. 补齐大纲 / 分卷缺失命令
-2. 补 `plan:show` 和历史导出增强
-3. 补测试
-4. 补 README 与帮助文本
+1. 补测试覆盖
+2. 补帮助文本与错误分类
+3. 做历史导出增强
+4. 增强 review 的语义检查
 
 ## 1. 目标
 
@@ -125,23 +121,22 @@
 
 ### Phase 4：项目与基础设定命令
 
-阶段状态：部分完成
+阶段状态：已完成
 
 - [x] 实现 `novel init`
 - [x] 实现 `novel project:create`
 - [x] 实现 `novel project:list`
-- [ ] 实现 `novel outline:set`
-- [ ] 实现 `novel outline:show`
-- [ ] 实现 `novel volume:plan`
-- [ ] 实现 `novel volume:list`
+- [x] 实现 `novel outline:set`
+- [x] 实现 `novel outline:show`
+- [x] 实现 `novel volume:plan`
+- [x] 实现 `novel volume:list`
 - [x] 实现 `novel lore:add`
 - [x] 实现 `novel lore:list`
 
 当前说明：
 
-- 已实现 `novel outline:add`
-- 已实现 `novel outline:list`
-- 当前可以录入总纲和分卷节点，但命令命名与原计划略有偏移
+- 已同时具备 `outline:set/show` 和 `outline:add/list`
+- 分卷规划复用 `outlines` 表中的 `volume` 节点
 
 交付物：
 
@@ -255,9 +250,7 @@
 - [x] 保存 `chapter_plans`
 - [x] 自动导出 `plan.md`
 
-补充缺口：
-
-- [ ] 实现 `novel plan:show`
+- [x] 实现 `novel plan:show`
 
 交付物：
 
@@ -375,22 +368,23 @@
 
 ### Phase 14：测试与收尾
 
-阶段状态：未完成
+阶段状态：部分完成
 
 - [ ] 为 migration 补测试
 - [ ] 为 repository 补测试
 - [ ] 为 context builder 补测试
 - [ ] 为 prompt builder 补测试
-- [ ] 为核心 CLI 命令补集成测试
+- [x] 为核心 CLI 命令补集成测试
 - [ ] 为导出逻辑补测试
 - [ ] 为 review 流程补测试
 - [ ] 清理命令帮助文本
-- [ ] 补充 README 最小使用说明
+- [x] 补充 README 最小使用说明
 
 当前说明：
 
-- 已有手工验证链路和 `build / typecheck` 验证
-- 但自动化测试体系还未建立，仍是 V1 目前最大的缺口
+- 已补最小 CLI 主流程集成测试
+- 已补 README 最小使用说明
+- 当前最大缺口变成更细粒度的单元测试与补充集成测试
 
 交付物：
 
@@ -432,11 +426,10 @@
 
 当前建议改为：
 
-1. 先补 `outline:set`、`outline:show`
-2. 再补 `volume:plan`、`volume:list`
-3. 补 `plan:show`
-4. 为 `chapter plan / draft write / review / export` 建最小集成测试
-5. 最后补 README 与帮助文案
+1. 为 repository / context builder / prompt builder 补单元测试
+2. 为导出与 review 流程补专门测试
+3. 清理帮助文本和失败提示
+4. 继续增强 run 历史导出能力
 
 ## 6. 第一周建议
 
