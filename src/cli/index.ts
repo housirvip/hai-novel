@@ -1,0 +1,26 @@
+#!/usr/bin/env node
+
+import { Command } from "commander";
+import { registerInitCommand } from "./commands/init-command.js";
+import { registerProjectCommands } from "./commands/project-command.js";
+import { logger } from "../utils/logger.js";
+
+const program = new Command();
+
+program
+  .name("novel")
+  .description("AI novel writing CLI powered by TypeScript and SQLite.")
+  .version("0.1.0");
+
+registerInitCommand(program);
+registerProjectCommands(program);
+
+program.showHelpAfterError();
+
+try {
+  await program.parseAsync(process.argv);
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  logger.error(message);
+  process.exitCode = 1;
+}
