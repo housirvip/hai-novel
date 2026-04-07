@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { createAIProvider, resolveAISettings } from "../../ai/provider-factory.js";
+import { AIDoctorService } from "../../app/services/ai-doctor-service.js";
 import { loadRuntimeContext } from "../../app/services/context-service.js";
 
 export function registerAICommands(program: Command): void {
@@ -48,5 +49,32 @@ export function registerAICommands(program: Command): void {
       ]);
 
       console.log(result.text);
+    });
+
+  ai
+    .command("doctor")
+    .description("Diagnose current AI provider configuration and connectivity.")
+    .option("--skip-network", "Skip network connectivity check")
+    .action(async (options) => {
+      const context = await loadRuntimeContext(process.cwd());
+      const service = new AIDoctorService(context);
+      const result = await service.diagnose({
+        skipNetwork: options.skipNetwork === true
+      });
+
+      console.table([
+        {
+          provider: result.provider,
+          model: result.model,
+          base_url: result.baseUrl,
+          api_key_env: result.apiKeyEnvName,
+          api_key_ready: result.hasApiKey ? "yes" : "no",
+          network_checked: result.networkChecked ? "yes" : "no",
+          network_ok: result.networkOk ? "yes" : "no",
+          http_status: result.httpStatus ?? ""
+        }
+      ]);
+
+      console.log(result.networkMessage);
     });
 }
