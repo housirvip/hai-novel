@@ -231,6 +231,7 @@
 - 已支持 prompt 查看与导出
 - 已支持模板元数据和版本快照写入 `generation_runs`
 - `ai doctor` 已支持 `config / network / all` 分区诊断、基础错误分类、可选生成自检和自定义测试 prompt
+- `ai doctor` 已支持基于真实任务模板的自检，可直接验证 `chapter-plan / draft-write / draft-fix` prompt 链路
 
 交付物：
 
@@ -389,7 +390,7 @@
 - 已补 CLI 错误提示和 `ai doctor` 诊断测试
 - 已补核心命令帮助示例测试
 - 已补 README 最小使用说明
-- 当前最大缺口变成 AI 真实联调增强，以及少量帮助文案和补充测试
+- 当前最大缺口变成带真实 `OPENAI_API_KEY` 的最终线上联调验证，以及少量补充测试
 
 交付物：
 

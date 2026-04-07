@@ -2,9 +2,11 @@ import { Command } from "commander";
 import { createAIProvider, resolveAISettings } from "../../ai/provider-factory.js";
 import {
   AIDoctorService,
+  type AIDoctorTask,
   type AIDoctorSection
 } from "../../app/services/ai-doctor-service.js";
 import { loadRuntimeContext } from "../../app/services/context-service.js";
+import { parseOptionalIntegerOption } from "../command-helpers.js";
 
 function parseDoctorSection(value: string): AIDoctorSection {
   if (value === "config" || value === "network" || value === "all") {
@@ -12,6 +14,21 @@ function parseDoctorSection(value: string): AIDoctorSection {
   }
 
   throw new Error("`--section` must be one of: config, network, all.");
+}
+
+function parseDoctorTask(value: string): AIDoctorTask {
+  if (
+    value === "ai_test" ||
+    value === "chapter-plan" ||
+    value === "draft-write" ||
+    value === "draft-fix"
+  ) {
+    return value;
+  }
+
+  throw new Error(
+    "`--test-task` must be one of: ai_test, chapter-plan, draft-write, draft-fix."
+  );
 }
 
 export function registerAICommands(program: Command): void {
@@ -80,6 +97,27 @@ Examples:
     )
     .option("--skip-network", "Skip network connectivity check")
     .option("--test-generate", "Run a minimal generation test when possible")
+    .option(
+      "--test-task <task>",
+      "Generation self-check task: ai_test|chapter-plan|draft-write|draft-fix",
+      parseDoctorTask,
+      "ai_test"
+    )
+    .option("--project <id>", "Project id used by task self-check", (value: string) =>
+      parseOptionalIntegerOption(value, "--project")
+    )
+    .option("--chapter <id>", "Chapter id used by task self-check", (value: string) =>
+      parseOptionalIntegerOption(value, "--chapter")
+    )
+    .option("--draft <id>", "Draft id used by task self-check", (value: string) =>
+      parseOptionalIntegerOption(value, "--draft")
+    )
+    .option("--plan <id>", "Plan id used by task self-check", (value: string) =>
+      parseOptionalIntegerOption(value, "--plan")
+    )
+    .option("--intent <text>", "Author intent used by chapter-plan self-check")
+    .option("--instruction <text>", "Extra instruction used by draft-write self-check")
+    .option("--notes <text>", "Extra notes used by draft-fix self-check")
     .option("--test-prompt <text>", "Custom prompt used by generation self-check")
     .option("--test-context <text>", "Optional context used by generation self-check")
     .action(async (options) => {
@@ -89,6 +127,14 @@ Examples:
         skipNetwork: options.skipNetwork === true,
         section: options.section,
         testGenerate: options.testGenerate === true,
+        testTask: options.testTask,
+        projectId: options.project,
+        chapterId: options.chapter,
+        draftId: options.draft,
+        planId: options.plan,
+        intent: options.intent,
+        instruction: options.instruction,
+        notes: options.notes,
         testPrompt: options.testPrompt,
         testContext: options.testContext
       });
@@ -123,6 +169,9 @@ Examples:
   novel ai doctor
   novel ai doctor --section config
   novel ai doctor --section all --test-generate
-  novel ai doctor --section all --test-generate --test-prompt "请只回复：联调通过"`
+  novel ai doctor --section all --test-generate --test-prompt "请只回复：联调通过"
+  novel ai doctor --section all --test-generate --test-task chapter-plan --project 1 --chapter 1
+  novel ai doctor --section all --test-generate --test-task draft-write --project 1 --chapter 1
+  novel ai doctor --section all --test-generate --test-task draft-fix --draft 1 --notes "重点收紧节奏"`
     );
 }

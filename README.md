@@ -187,6 +187,9 @@ npm run dev -- ai doctor --section config
 npm run dev -- ai doctor --section network
 npm run dev -- ai doctor --section all --test-generate
 npm run dev -- ai doctor --section all --test-generate --test-prompt "请只回复：联调通过"
+npm run dev -- ai doctor --section all --test-generate --test-task chapter-plan --project 1 --chapter 1
+npm run dev -- ai doctor --section all --test-generate --test-task draft-write --project 1 --chapter 1
+npm run dev -- ai doctor --section all --test-generate --test-task draft-fix --draft 1 --notes "重点收紧节奏"
 ```
 
 ## 生成历史导出

@@ -49,6 +49,24 @@ test("ai doctor 支持 config 和 network 分区诊断", () => {
   const workspace = createWorkspace("hai-novel-ai-doctor-");
 
   runBuiltCli(workspace, ["init"]);
+  runBuiltCli(workspace, [
+    "project",
+    "create",
+    "--name",
+    "联调测试小说",
+    "--genre",
+    "仙侠"
+  ]);
+  runBuiltCli(workspace, [
+    "chapter",
+    "create",
+    "--project",
+    "1",
+    "--title",
+    "第001章",
+    "--summary",
+    "主角踏入宗门，气氛压抑。"
+  ]);
 
   const configResult = runBuiltCli(workspace, ["ai", "doctor", "--section", "config"]);
   assert.match(configResult, /config_ok/);
@@ -72,6 +90,23 @@ test("ai doctor 支持 config 和 network 分区诊断", () => {
     "请只回复：自定义联调"
   ]);
   assert.match(customPromptGenerateResult, /自定义联调/);
+  const chapterPlanTaskResult = runBuiltCli(workspace, [
+    "ai",
+    "doctor",
+    "--section",
+    "all",
+    "--test-generate",
+    "--test-task",
+    "chapter-plan",
+    "--project",
+    "1",
+    "--chapter",
+    "1",
+    "--intent",
+    "强调压迫感和悬念"
+  ]);
+  assert.match(chapterPlanTaskResult, /chapter_plan/);
+  assert.match(chapterPlanTaskResult, /生成测试通过/);
 
   const configPath = path.join(workspace, "novel.config.json");
   const config = JSON.parse(readFileSync(configPath, "utf8"));
@@ -160,6 +195,10 @@ test("核心命令帮助文本会展示示例", () => {
   const chapterHelp = runBuiltCli(workspace, ["chapter", "plan", "--help"]);
   assert.match(chapterHelp, /Examples:/);
   assert.match(chapterHelp, /novel chapter plan --project 1 --chapter 1/);
+
+  const aiDoctorHelp = runBuiltCli(workspace, ["ai", "doctor", "--help"]);
+  assert.match(aiDoctorHelp, /Examples:/);
+  assert.match(aiDoctorHelp, /novel ai doctor --section all --test-generate --test-task chapter-plan --project 1 --chapter 1/);
 
   const runHelp = runBuiltCli(workspace, ["run", "export", "--help"]);
   assert.match(runHelp, /Examples:/);

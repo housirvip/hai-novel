@@ -1,7 +1,9 @@
 import { createAIProvider, resolveAISettings } from "../../ai/provider-factory.js";
+import { PromptService } from "./prompt-service.js";
 import type { RuntimeContext } from "./context-service.js";
 
 export type AIDoctorSection = "config" | "network" | "all";
+export type AIDoctorTask = "ai_test" | "chapter-plan" | "draft-write" | "draft-fix";
 
 export interface AIDoctorResult {
   /** 当前 provider。 */
@@ -47,6 +49,14 @@ export class AIDoctorService {
     skipNetwork?: boolean;
     section?: AIDoctorSection;
     testGenerate?: boolean;
+    testTask?: AIDoctorTask;
+    projectId?: number;
+    chapterId?: number;
+    draftId?: number;
+    planId?: number;
+    intent?: string;
+    instruction?: string;
+    notes?: string;
     testPrompt?: string;
     testContext?: string;
   }): Promise<AIDoctorResult> {
@@ -59,6 +69,14 @@ export class AIDoctorService {
     if (settings.provider === "mock") {
       if (options?.testGenerate === true) {
         const generationResult = await this.runGenerateTest("mock", {
+          task: options.testTask,
+          projectId: options.projectId,
+          chapterId: options.chapterId,
+          draftId: options.draftId,
+          planId: options.planId,
+          intent: options.intent,
+          instruction: options.instruction,
+          notes: options.notes,
           prompt: options.testPrompt,
           contextText: options.testContext
         });
@@ -196,6 +214,14 @@ export class AIDoctorService {
     }
 
     const generationResult = await this.runGenerateTest("openai", {
+      task: options.testTask,
+      projectId: options.projectId,
+      chapterId: options.chapterId,
+      draftId: options.draftId,
+      planId: options.planId,
+      intent: options.intent,
+      instruction: options.instruction,
+      notes: options.notes,
       prompt: options.testPrompt,
       contextText: options.testContext
     });
@@ -317,6 +343,14 @@ export class AIDoctorService {
   private async runGenerateTest(
     provider: "mock" | "openai",
     input?: {
+      task?: AIDoctorTask;
+      projectId?: number;
+      chapterId?: number;
+      draftId?: number;
+      planId?: number;
+      intent?: string;
+      instruction?: string;
+      notes?: string;
       prompt?: string;
       contextText?: string;
     }
@@ -328,17 +362,19 @@ export class AIDoctorService {
   }> {
     try {
       const aiProvider = createAIProvider(this.context);
+      const testTask = input?.task ?? "ai_test";
+      const payload = this.buildGeneratePayload(testTask, input);
       const result = await aiProvider.generateText({
-        taskType: "ai_test",
-        systemPrompt: "你是中文助手，请用一句话回复。",
-        prompt: input?.prompt ?? "请回复：连通性测试通过。",
-        contextText: input?.contextText ?? "",
-        maxOutputTokens: 60
+        taskType: payload.taskType,
+        systemPrompt: payload.systemPrompt,
+        prompt: payload.prompt,
+        contextText: payload.contextText,
+        maxOutputTokens: payload.maxOutputTokens
       });
 
       return {
         generationOk: true,
-        generationMessage: `${provider} 生成测试通过：${result.text.slice(0, 120)}`,
+        generationMessage: `${provider} ${payload.taskType} 生成测试通过：${result.text.slice(0, 120)}`,
         generationErrorType: "none",
         generationRequestId: result.requestId
       };
@@ -350,6 +386,98 @@ export class AIDoctorService {
         generationErrorType: "generation_error"
       };
     }
+  }
+
+  private buildGeneratePayload(
+    task: AIDoctorTask,
+    input?: {
+      projectId?: number;
+      chapterId?: number;
+      draftId?: number;
+      planId?: number;
+      intent?: string;
+      instruction?: string;
+      notes?: string;
+      prompt?: string;
+      contextText?: string;
+    }
+  ): {
+    taskType: string;
+    systemPrompt: string;
+    prompt: string;
+    contextText: string;
+    maxOutputTokens: number;
+  } {
+    if (task === "ai_test") {
+      return {
+        taskType: "ai_test",
+        systemPrompt: "你是中文助手，请用一句话回复。",
+        prompt: input?.prompt ?? "请回复：连通性测试通过。",
+        contextText: input?.contextText ?? "",
+        maxOutputTokens: 60
+      };
+    }
+
+    const promptService = new PromptService(this.context);
+
+    if (task === "chapter-plan") {
+      if (input?.projectId === undefined || input.chapterId === undefined) {
+        throw new Error(
+          "AI doctor task `chapter-plan` requires `--project` and `--chapter`."
+        );
+      }
+
+      const bundle = promptService.buildChapterPlanPrompt({
+        projectId: input.projectId,
+        chapterId: input.chapterId,
+        intent: input.intent
+      });
+      return {
+        taskType: "chapter_plan",
+        systemPrompt: bundle.systemPrompt,
+        prompt: bundle.prompt,
+        contextText: bundle.contextText,
+        maxOutputTokens: 600
+      };
+    }
+
+    if (task === "draft-write") {
+      if (input?.projectId === undefined || input.chapterId === undefined) {
+        throw new Error(
+          "AI doctor task `draft-write` requires `--project` and `--chapter`."
+        );
+      }
+
+      const bundle = promptService.buildDraftWritePrompt({
+        projectId: input.projectId,
+        chapterId: input.chapterId,
+        planId: input.planId,
+        instruction: input.instruction
+      });
+      return {
+        taskType: "chapter_draft",
+        systemPrompt: bundle.systemPrompt,
+        prompt: bundle.prompt,
+        contextText: bundle.contextText,
+        maxOutputTokens: 800
+      };
+    }
+
+    if (input?.draftId === undefined) {
+      throw new Error("AI doctor task `draft-fix` requires `--draft`.");
+    }
+
+    const bundle = promptService.buildDraftFixPrompt({
+      draftId: input.draftId,
+      notes: input.notes
+    });
+    return {
+      taskType: "draft_review_fix",
+      systemPrompt: bundle.systemPrompt,
+      prompt: bundle.prompt,
+      contextText: bundle.contextText,
+      maxOutputTokens: 900
+    };
   }
 
   private classifyHttpStatus(status: number): string {
