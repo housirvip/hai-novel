@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import { registerCharacterCommands } from "./commands/character-command.js";
 import { registerChapterCommands } from "./commands/chapter-command.js";
+import { registerDraftCommands } from "./commands/draft-command.js";
 import { registerFactionCommands } from "./commands/faction-command.js";
 import { registerHookCommands } from "./commands/hook-command.js";
 import { registerInitCommand } from "./commands/init-command.js";
@@ -25,6 +26,7 @@ registerCharacterCommands(program);
 registerRelationCommands(program);
 registerOutlineCommands(program);
 registerChapterCommands(program);
+registerDraftCommands(program);
 registerHookCommands(program);
 
 program.showHelpAfterError();

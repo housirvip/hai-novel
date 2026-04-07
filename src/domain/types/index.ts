@@ -431,6 +431,105 @@ export interface CreateChapterInput {
 }
 
 /**
+ * 章节规划实体的读取结果。
+ * 对应 `chapter_plans` 表，用于保存某一章当前生效或历史归档的写作规划。
+ */
+export interface ChapterPlanRecord {
+  /** 规划自增主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 对应章节 ID。 */
+  chapter_id: number;
+  /** 规划来源类型，例如 author_intent / outline_only / outline_with_intent。 */
+  source_type: string;
+  /** 作者意图原文，可为空。 */
+  author_intent: string | null;
+  /** 最终生成出的规划正文。 */
+  plan_text: string;
+  /** 当前状态，例如 active / archived。 */
+  status: string;
+  /** 创建时间。 */
+  created_at: string;
+  /** 最近更新时间。 */
+  updated_at: string;
+}
+
+/**
+ * 创建章节规划时的输入结构。
+ * 这里主要给 repository 使用，代表一条新的有效规划版本。
+ */
+export interface CreateChapterPlanInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 规划来源类型。 */
+  sourceType: string;
+  /** 作者意图。 */
+  authorIntent?: string;
+  /** 规划正文。 */
+  planText: string;
+}
+
+/**
+ * 生成章节规划时的输入结构。
+ * 这里体现的是命令级语义，而不是数据库落库语义。
+ */
+export interface GenerateChapterPlanInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 可选的作者即时意图。 */
+  intent?: string;
+}
+
+/**
+ * 草稿实体的读取结果。
+ * 对应 `chapter_drafts` 表，目前先用于导出能力和后续 review 流程预留。
+ */
+export interface ChapterDraftRecord {
+  /** 草稿自增主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 对应章节 ID。 */
+  chapter_id: number;
+  /** 来源规划 ID，可为空。 */
+  plan_id: number | null;
+  /** 草稿正文。 */
+  draft_text: string;
+  /** 草稿状态，例如 generated / checked / approved / dropped。 */
+  status: string;
+  /** 评审备注，可为空。 */
+  review_notes: string | null;
+  /** 评审报告，可为空。 */
+  review_report: string | null;
+  /** 创建时间。 */
+  created_at: string;
+  /** 最近更新时间。 */
+  updated_at: string;
+}
+
+/**
+ * 创建草稿时的输入结构。
+ * 这里用于 repository 层落库，表示一份新生成的章节草稿。
+ */
+export interface CreateChapterDraftInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 来源 plan ID，可为空。 */
+  planId?: number;
+  /** 草稿正文。 */
+  draftText: string;
+  /** 草稿状态。 */
+  status?: string;
+}
+
+/**
  * 钩子实体的读取结果。
  * 对应 `story_hooks` 表，用于追踪伏笔、谜团和承诺线的生命周期。
  */
@@ -606,4 +705,120 @@ export interface StoryHookDetail {
   hook: StoryHookListItem;
   /** 钩子在各章节上的推进记录。 */
   chapter_links: HookChapterLinkListItem[];
+}
+
+/**
+ * 章节导出的来源类型。
+ * V1 先统一使用字符串字面量约束，CLI 和 service 都使用同一套枚举值。
+ */
+export type ChapterExportSource = "plan" | "draft" | "final";
+
+/**
+ * 章节规划生成结果。
+ * 用于把落库结果和自动导出的 Markdown 路径一起返回给命令层。
+ */
+export interface ChapterPlanGenerationResult {
+  /** 新生成的章节规划记录。 */
+  plan: ChapterPlanRecord;
+  /** 自动导出的 Markdown 绝对路径。 */
+  exportPath: string;
+}
+
+/**
+ * 草稿生成命令的输入结构。
+ */
+export interface WriteDraftInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 指定使用的 plan ID；未传时默认取当前 active plan。 */
+  planId?: number;
+  /** 额外写作指令。 */
+  instruction?: string;
+}
+
+/**
+ * 草稿写入结果。
+ * 包含草稿记录、生成记录以及导出路径，便于命令层直接展示。
+ */
+export interface DraftWriteResult {
+  /** 新生成的草稿记录。 */
+  draft: ChapterDraftRecord;
+  /** 生成任务记录 ID。 */
+  generationRunId: number;
+  /** 自动导出的 Markdown 绝对路径。 */
+  exportPath: string;
+}
+
+/**
+ * 手动导出章节内容时的输入结构。
+ */
+export interface ExportChapterInput {
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 导出来源。 */
+  source: ChapterExportSource;
+}
+
+/**
+ * 导出结果。
+ * 既返回路径，也返回最终写出的 Markdown 文本，便于后续复用或测试。
+ */
+export interface ChapterExportResult {
+  /** 导出的来源类型。 */
+  source: ChapterExportSource;
+  /** 导出的 Markdown 绝对路径。 */
+  exportPath: string;
+  /** 实际写出的 Markdown 内容。 */
+  markdown: string;
+}
+
+/**
+ * 生成记录实体的读取结果。
+ * 对应 `generation_runs` 表，用于追踪每次 plan/draft/review 等 AI 生成动作。
+ */
+export interface GenerationRunRecord {
+  /** 生成记录主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 关联章节 ID，可为空。 */
+  chapter_id: number | null;
+  /** 运行类型，例如 chapter_plan / draft_write / draft_review_fix。 */
+  run_type: string;
+  /** 传给模型的 prompt 文本。 */
+  prompt_text: string | null;
+  /** 输入上下文摘要。 */
+  input_context: string | null;
+  /** 模型输出结果。 */
+  output_text: string | null;
+  /** 使用的模型标识。 */
+  model: string | null;
+  /** 运行状态，例如 success / failed。 */
+  status: string;
+  /** 创建时间。 */
+  created_at: string;
+}
+
+/**
+ * 创建生成记录时的输入结构。
+ */
+export interface CreateGenerationRunInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 章节 ID，可为空。 */
+  chapterId?: number;
+  /** 运行类型。 */
+  runType: string;
+  /** Prompt 文本。 */
+  promptText?: string;
+  /** 上下文摘要。 */
+  inputContext?: string;
+  /** 输出文本。 */
+  outputText?: string;
+  /** 模型标识。 */
+  model?: string;
+  /** 状态。 */
+  status?: string;
 }

@@ -1,12 +1,21 @@
 import { Command } from "commander";
 import { ChapterService } from "../../app/services/chapter-service.js";
 import { loadRuntimeContext } from "../../app/services/context-service.js";
+import type { ChapterExportSource } from "../../domain/types/index.js";
 import { logger } from "../../utils/logger.js";
 import {
   assertInitialized,
   parseOptionalIntegerOption,
   parseRequiredIntegerOption
 } from "../command-helpers.js";
+
+function parseChapterExportSource(value: string): ChapterExportSource {
+  if (value === "plan" || value === "draft" || value === "final") {
+    return value;
+  }
+
+  throw new Error("`--source` must be one of: plan, draft, final.");
+}
 
 export function registerChapterCommands(program: Command): void {
   const chapter = program.command("chapter").description("Chapter management commands.");
@@ -41,6 +50,38 @@ export function registerChapterCommands(program: Command): void {
           title: chapterRecord.title,
           status: chapterRecord.status,
           created_at: chapterRecord.created_at
+        }
+      ]);
+    });
+
+  chapter
+    .command("plan")
+    .description("Generate a chapter plan and export it as Markdown.")
+    .requiredOption("--project <id>", "Project id", (value: string) =>
+      parseRequiredIntegerOption(value, "--project")
+    )
+    .requiredOption("--chapter <id>", "Chapter id", (value: string) =>
+      parseRequiredIntegerOption(value, "--chapter")
+    )
+    .option("--intent <text>", "Author intent for this chapter")
+    .action(async (options) => {
+      await assertInitialized(process.cwd());
+      const context = await loadRuntimeContext(process.cwd());
+      const service = new ChapterService(context);
+      const result = await service.generatePlan({
+        projectId: options.project,
+        chapterId: options.chapter,
+        intent: options.intent
+      });
+
+      console.table([
+        {
+          id: result.plan.id,
+          project_id: result.plan.project_id,
+          chapter_id: result.plan.chapter_id,
+          source_type: result.plan.source_type,
+          status: result.plan.status,
+          export_path: result.exportPath
         }
       ]);
     });
@@ -92,5 +133,34 @@ export function registerChapterCommands(program: Command): void {
           status: linkRecord.status
         }))
       );
+    });
+
+  chapter
+    .command("export")
+    .description("Export chapter content to Markdown.")
+    .requiredOption("--chapter <id>", "Chapter id", (value: string) =>
+      parseRequiredIntegerOption(value, "--chapter")
+    )
+    .requiredOption(
+      "--source <source>",
+      "Export source: plan|draft|final",
+      parseChapterExportSource
+    )
+    .action(async (options) => {
+      await assertInitialized(process.cwd());
+      const context = await loadRuntimeContext(process.cwd());
+      const service = new ChapterService(context);
+      const result = await service.exportChapter({
+        chapterId: options.chapter,
+        source: options.source
+      });
+
+      console.table([
+        {
+          chapter_id: options.chapter,
+          source: result.source,
+          export_path: result.exportPath
+        }
+      ]);
     });
 }
