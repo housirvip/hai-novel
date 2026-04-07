@@ -73,4 +73,47 @@ export class ChapterDraftRepository {
     );
     return statement.get(chapterId);
   }
+
+  updateReview(
+    draftId: number,
+    input: {
+      status?: string;
+      draftText?: string;
+      reviewNotes?: string | null;
+      reviewReport?: string | null;
+    }
+  ): ChapterDraftRecord {
+    const current = this.findById(draftId);
+    if (!current) {
+      throw new Error(`Chapter draft ${draftId} not found.`);
+    }
+
+    this.database
+      .prepare<
+        [string, string, string | null, string | null, number],
+        Database.RunResult
+      >(
+        `UPDATE chapter_drafts
+         SET status = ?,
+             draft_text = ?,
+             review_notes = ?,
+             review_report = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      )
+      .run(
+        input.status ?? current.status,
+        input.draftText ?? current.draft_text,
+        input.reviewNotes ?? current.review_notes,
+        input.reviewReport ?? current.review_report,
+        draftId
+      );
+
+    const updated = this.findById(draftId);
+    if (!updated) {
+      throw new Error(`Failed to reload chapter draft ${draftId} after update.`);
+    }
+
+    return updated;
+  }
 }

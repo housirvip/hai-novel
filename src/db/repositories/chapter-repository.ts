@@ -72,4 +72,23 @@ export class ChapterRepository {
     );
     return statement.get(id);
   }
+
+  approveDraft(chapterId: number, draftId: number, finalText: string): ChapterRecord {
+    this.database
+      .prepare<[string, number, number], Database.RunResult>(
+        `UPDATE chapters
+         SET final_text = ?,
+             approved_draft_id = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      )
+      .run(finalText, draftId, chapterId);
+
+    const updated = this.findById(chapterId);
+    if (!updated) {
+      throw new Error(`Failed to reload chapter ${chapterId} after approval.`);
+    }
+
+    return updated;
+  }
 }

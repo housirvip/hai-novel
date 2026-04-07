@@ -752,6 +752,54 @@ export interface DraftWriteResult {
 }
 
 /**
+ * 草稿评审动作类型。
+ * V1 先支持检查、修复和批准三种动作。
+ */
+export type DraftReviewAction = "check" | "fix" | "approve";
+
+/**
+ * 草稿评审问题项。
+ * `check` 动作会生成这类结构，并同时写入数据库与命令行输出。
+ */
+export interface DraftReviewIssue {
+  /** 问题等级，只区分阻塞性的 error 和建议性的 warning。 */
+  level: "error" | "warning";
+  /** 问题标题。 */
+  title: string;
+  /** 问题说明。 */
+  detail: string;
+}
+
+/**
+ * 草稿评审命令的输入结构。
+ */
+export interface ReviewDraftInput {
+  /** 草稿 ID。 */
+  draftId: number;
+  /** 评审动作。 */
+  action: DraftReviewAction;
+  /** 用户补充说明。 */
+  notes?: string;
+}
+
+/**
+ * 草稿评审结果。
+ * 不同动作都会返回最新草稿、问题列表以及可能的导出路径。
+ */
+export interface DraftReviewResult {
+  /** 执行的动作。 */
+  action: DraftReviewAction;
+  /** 最新草稿记录。 */
+  draft: ChapterDraftRecord;
+  /** 评审问题列表。 */
+  issues: DraftReviewIssue[];
+  /** 生成记录 ID。 */
+  generationRunId: number;
+  /** 导出路径；只有 fix 和 approve 成功时才会有。 */
+  exportPath?: string;
+}
+
+/**
  * 手动导出章节内容时的输入结构。
  */
 export interface ExportChapterInput {

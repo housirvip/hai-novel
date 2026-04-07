@@ -1,7 +1,17 @@
 import { Command } from "commander";
 import { loadRuntimeContext } from "../../app/services/context-service.js";
 import { DraftService } from "../../app/services/draft-service.js";
+import type { DraftReviewAction } from "../../domain/types/index.js";
+import { logger } from "../../utils/logger.js";
 import { assertInitialized, parseOptionalIntegerOption, parseRequiredIntegerOption } from "../command-helpers.js";
+
+function parseDraftReviewAction(value: string): DraftReviewAction {
+  if (value === "check" || value === "fix" || value === "approve") {
+    return value;
+  }
+
+  throw new Error("`--action` must be one of: check, fix, approve.");
+}
 
 export function registerDraftCommands(program: Command): void {
   const draft = program.command("draft").description("Draft management commands.");
@@ -41,5 +51,62 @@ export function registerDraftCommands(program: Command): void {
           export_path: result.exportPath
         }
       ]);
+    });
+
+  draft
+    .command("review")
+    .description("Review a draft with check, fix, or approve action.")
+    .requiredOption("--draft <id>", "Draft id", (value: string) =>
+      parseRequiredIntegerOption(value, "--draft")
+    )
+    .requiredOption("--action <action>", "Review action: check|fix|approve", parseDraftReviewAction)
+    .option("--notes <text>", "Extra review notes")
+    .action(async (options) => {
+      await assertInitialized(process.cwd());
+      const context = await loadRuntimeContext(process.cwd());
+      const service = new DraftService(context);
+      const result = await service.reviewDraft({
+        draftId: options.draft,
+        action: options.action,
+        notes: options.notes
+      });
+
+      console.table([
+        {
+          draft_id: result.draft.id,
+          chapter_id: result.draft.chapter_id,
+          action: result.action,
+          status: result.draft.status,
+          generation_run_id: result.generationRunId,
+          export_path: result.exportPath ?? ""
+        }
+      ]);
+
+      if (result.issues.length === 0) {
+        logger.info("No review issues found.");
+        return;
+      }
+
+      console.table(
+        result.issues.map((issue, index) => ({
+          index: index + 1,
+          level: issue.level,
+          title: issue.title,
+          detail: issue.detail
+        }))
+      );
+    });
+
+  draft
+    .command("drop")
+    .description("Drop a draft so it will not be used as final text.")
+    .requiredOption("--draft <id>", "Draft id", (value: string) =>
+      parseRequiredIntegerOption(value, "--draft")
+    )
+    .action(async (options) => {
+      await assertInitialized(process.cwd());
+      const context = await loadRuntimeContext(process.cwd());
+      const service = new DraftService(context);
+      service.dropDraft(options.draft);
     });
 }
