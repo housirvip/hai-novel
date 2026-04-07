@@ -7,6 +7,7 @@ import { ChapterPlanRepository } from "../../db/repositories/chapter-plan-reposi
 import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
 import { FactionRepository } from "../../db/repositories/faction-repository.js";
 import { HookChapterLinkRepository } from "../../db/repositories/hook-chapter-link-repository.js";
+import { LoreRepository } from "../../db/repositories/lore-repository.js";
 import { OutlineRepository } from "../../db/repositories/outline-repository.js";
 import { ProjectRepository } from "../../db/repositories/project-repository.js";
 import { StoryHookRepository } from "../../db/repositories/story-hook-repository.js";
@@ -79,6 +80,7 @@ export class ChapterService {
       const outlineRepository = new OutlineRepository(database);
       const characterRepository = new CharacterRepository(database);
       const factionRepository = new FactionRepository(database);
+      const loreRepository = new LoreRepository(database);
       const hookRepository = new StoryHookRepository(database);
       const hookLinkRepository = new HookChapterLinkRepository(database);
       const planRepository = new ChapterPlanRepository(database);
@@ -110,6 +112,7 @@ export class ChapterService {
       logger.progress("chapter:plan 3/6 汇总人物与势力");
       const characters = characterRepository.findAllByProjectId(input.projectId);
       const factions = factionRepository.findAllByProjectId(input.projectId);
+      const loreEntries = loreRepository.findAllByProjectId(input.projectId);
 
       logger.progress("chapter:plan 4/6 汇总钩子线索");
       const chapterHookLinks = hookLinkRepository.findAllByChapterId(input.chapterId);
@@ -126,6 +129,7 @@ export class ChapterService {
         rootOutlines,
         characters,
         factions,
+        loreEntries,
         chapterHookLinks,
         targetHooks,
         intent: input.intent
@@ -291,6 +295,12 @@ export class ChapterService {
       goal: string | null;
       stance: string | null;
     }>;
+    loreEntries: Array<{
+      type: string;
+      title: string;
+      summary: string | null;
+      details: string | null;
+    }>;
     chapterHookLinks: Array<{
       hook_title: string;
       hook_type: string;
@@ -359,6 +369,19 @@ export class ChapterService {
             .join("\n")
         : "1. 当前项目暂无势力设定。";
 
+    const loreSection =
+      input.loreEntries.length > 0
+        ? input.loreEntries
+            .slice(0, 8)
+            .map(
+              (entry, index) =>
+                `${index + 1}. [${entry.type}] ${entry.title}${
+                  entry.summary ? `：${entry.summary}` : ""
+                }${entry.details ? `；补充：${entry.details}` : ""}`
+            )
+            .join("\n")
+        : "1. 当前项目暂无长期世界观设定。";
+
     const hookSectionLines: string[] = [];
     if (input.chapterHookLinks.length > 0) {
       hookSectionLines.push("已绑定到本章的钩子：");
@@ -412,6 +435,9 @@ export class ChapterService {
       "",
       "## 可调用势力",
       factionSection,
+      "",
+      "## 世界观设定",
+      loreSection,
       "",
       "## 钩子安排",
       hookSection,

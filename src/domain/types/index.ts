@@ -317,6 +317,49 @@ export interface CreateCharacterFactionRelationInput {
 }
 
 /**
+ * 世界观设定实体的读取结果。
+ * 对应 `lore_entries` 表，用于承载规则、体系、地点、历史、器物等长期设定。
+ */
+export interface LoreEntryRecord {
+  /** 设定自增主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 设定类型，例如 world_rule / profession_system / location。 */
+  type: string;
+  /** 设定标题。 */
+  title: string;
+  /** 设定摘要。 */
+  summary: string | null;
+  /** 设定详细正文。 */
+  details: string | null;
+  /** 标签字符串，V1 先使用逗号分隔的纯文本。 */
+  tags: string | null;
+  /** 创建时间。 */
+  created_at: string;
+  /** 最近更新时间。 */
+  updated_at: string;
+}
+
+/**
+ * 创建世界观设定时的输入结构。
+ */
+export interface CreateLoreEntryInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 设定类型。 */
+  type: string;
+  /** 设定标题。 */
+  title: string;
+  /** 设定摘要。 */
+  summary?: string;
+  /** 设定详情。 */
+  details?: string;
+  /** 标签文本。 */
+  tags?: string;
+}
+
+/**
  * 大纲节点的读取结果。
  * 对应 `outlines` 表，可表示总纲、分卷、章节节点或场景节点。
  */
