@@ -185,6 +185,7 @@ npm run dev -- ai status
 npm run dev -- ai doctor
 npm run dev -- ai doctor --section config
 npm run dev -- ai doctor --section network
+npm run dev -- ai doctor --section all --test-generate
 ```
 
 ## 生成历史导出

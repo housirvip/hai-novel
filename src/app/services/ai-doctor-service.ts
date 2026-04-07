@@ -1,4 +1,4 @@
-import { resolveAISettings } from "../../ai/provider-factory.js";
+import { createAIProvider, resolveAISettings } from "../../ai/provider-factory.js";
 import type { RuntimeContext } from "./context-service.js";
 
 export type AIDoctorSection = "config" | "network" | "all";
@@ -28,6 +28,16 @@ export interface AIDoctorResult {
   networkErrorType?: string;
   /** HTTP 状态码，可为空。 */
   httpStatus?: number;
+  /** 是否执行了最小生成测试。 */
+  generationChecked: boolean;
+  /** 最小生成测试是否成功。 */
+  generationOk: boolean;
+  /** 生成测试结果说明。 */
+  generationMessage: string;
+  /** 生成测试错误类型，可为空。 */
+  generationErrorType?: string;
+  /** 生成测试 request id，可为空。 */
+  generationRequestId?: string;
 }
 
 export class AIDoctorService {
@@ -36,6 +46,7 @@ export class AIDoctorService {
   async diagnose(options?: {
     skipNetwork?: boolean;
     section?: AIDoctorSection;
+    testGenerate?: boolean;
   }): Promise<AIDoctorResult> {
     const settings = resolveAISettings(this.context);
     const baseUrl = settings.baseUrl ?? "";
@@ -44,6 +55,31 @@ export class AIDoctorService {
     const configDiagnosis = this.diagnoseConfig();
 
     if (settings.provider === "mock") {
+      if (options?.testGenerate === true) {
+        const generationResult = await this.runGenerateTest("mock");
+        return {
+          provider: settings.provider,
+          model: settings.model,
+          baseUrl,
+          hasApiKey: settings.hasApiKey,
+          apiKeyEnvName,
+          configOk: configDiagnosis.configOk,
+          configMessage: configDiagnosis.configMessage,
+          networkChecked: false,
+          networkOk: true,
+          networkMessage:
+            section === "network" || section === "all"
+              ? "mock provider 无需网络检查。"
+              : "当前只执行配置检查，未进行网络探测。",
+          networkErrorType: "skipped",
+          generationChecked: true,
+          generationOk: generationResult.generationOk,
+          generationMessage: generationResult.generationMessage,
+          generationErrorType: generationResult.generationErrorType,
+          generationRequestId: generationResult.generationRequestId
+        };
+      }
+
       return {
         provider: settings.provider,
         model: settings.model,
@@ -58,7 +94,11 @@ export class AIDoctorService {
           section === "network" || section === "all"
             ? "mock provider 无需网络检查。"
             : "当前只执行配置检查，未进行网络探测。",
-        networkErrorType: "skipped"
+        networkErrorType: "skipped",
+        generationChecked: false,
+        generationOk: true,
+        generationMessage: "未执行生成测试。",
+        generationErrorType: "skipped"
       };
     }
 
@@ -74,7 +114,11 @@ export class AIDoctorService {
         networkChecked: false,
         networkOk: false,
         networkMessage: "未检测到 OPENAI_API_KEY，已跳过网络检查。",
-        networkErrorType: "missing_api_key"
+        networkErrorType: "missing_api_key",
+        generationChecked: false,
+        generationOk: false,
+        generationMessage: "未检测到 OPENAI_API_KEY，已跳过生成测试。",
+        generationErrorType: "missing_api_key"
       };
     }
 
@@ -90,7 +134,11 @@ export class AIDoctorService {
         networkChecked: false,
         networkOk: true,
         networkMessage: "当前只执行配置检查，未进行网络探测。",
-        networkErrorType: "skipped"
+        networkErrorType: "skipped",
+        generationChecked: false,
+        generationOk: true,
+        generationMessage: "当前只执行配置检查，未进行生成测试。",
+        generationErrorType: "skipped"
       };
     }
 
@@ -106,17 +154,51 @@ export class AIDoctorService {
         networkChecked: false,
         networkOk: true,
         networkMessage: "按参数要求跳过网络检查。",
-        networkErrorType: "skipped"
+        networkErrorType: "skipped",
+        generationChecked: false,
+        generationOk: true,
+        generationMessage: "当前未执行生成测试。",
+        generationErrorType: "skipped"
       };
     }
 
-    return this.checkOpenAINetwork({
+    const networkResult = await this.checkOpenAINetwork({
       provider: settings.provider,
       model: settings.model,
       baseUrl,
       apiKeyEnvName,
       configDiagnosis
     });
+
+    if (options?.testGenerate !== true) {
+      return {
+        ...networkResult,
+        generationChecked: false,
+        generationOk: networkResult.networkOk,
+        generationMessage: "未执行生成测试。",
+        generationErrorType: "skipped"
+      };
+    }
+
+    if (!networkResult.networkOk) {
+      return {
+        ...networkResult,
+        generationChecked: false,
+        generationOk: false,
+        generationMessage: "网络检查未通过，已跳过生成测试。",
+        generationErrorType: "skipped_due_to_network"
+      };
+    }
+
+    const generationResult = await this.runGenerateTest("openai");
+    return {
+      ...networkResult,
+      generationChecked: true,
+      generationOk: generationResult.generationOk,
+      generationMessage: generationResult.generationMessage,
+      generationErrorType: generationResult.generationErrorType,
+      generationRequestId: generationResult.generationRequestId
+    };
   }
 
   private diagnoseConfig(): { configOk: boolean; configMessage: string } {
@@ -174,7 +256,11 @@ export class AIDoctorService {
           networkOk: true,
           networkMessage: "OpenAI 网络检查通过。",
           networkErrorType: "none",
-          httpStatus: response.status
+          httpStatus: response.status,
+          generationChecked: false,
+          generationOk: true,
+          generationMessage: "未执行生成测试。",
+          generationErrorType: "skipped"
         };
       }
 
@@ -192,7 +278,11 @@ export class AIDoctorService {
         networkOk: false,
         networkMessage: `OpenAI 网络检查失败：${responseText.slice(0, 200)}`,
         networkErrorType,
-        httpStatus: response.status
+        httpStatus: response.status,
+        generationChecked: false,
+        generationOk: false,
+        generationMessage: "网络检查失败，未执行生成测试。",
+        generationErrorType: "skipped_due_to_network"
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -207,7 +297,43 @@ export class AIDoctorService {
         networkChecked: true,
         networkOk: false,
         networkMessage: `OpenAI 网络检查异常：${message}`,
-        networkErrorType: "network_error"
+        networkErrorType: "network_error",
+        generationChecked: false,
+        generationOk: false,
+        generationMessage: "网络检查异常，未执行生成测试。",
+        generationErrorType: "skipped_due_to_network"
+      };
+    }
+  }
+
+  private async runGenerateTest(provider: "mock" | "openai"): Promise<{
+    generationOk: boolean;
+    generationMessage: string;
+    generationErrorType: string;
+    generationRequestId?: string;
+  }> {
+    try {
+      const aiProvider = createAIProvider(this.context);
+      const result = await aiProvider.generateText({
+        taskType: "ai_test",
+        systemPrompt: "你是中文助手，请用一句话回复。",
+        prompt: "请回复：连通性测试通过。",
+        contextText: "",
+        maxOutputTokens: 60
+      });
+
+      return {
+        generationOk: true,
+        generationMessage: `${provider} 生成测试通过：${result.text.slice(0, 120)}`,
+        generationErrorType: "none",
+        generationRequestId: result.requestId
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        generationOk: false,
+        generationMessage: `生成测试失败：${message}`,
+        generationErrorType: "generation_error"
       };
     }
   }

@@ -72,12 +72,14 @@ export function registerAICommands(program: Command): void {
       "all"
     )
     .option("--skip-network", "Skip network connectivity check")
+    .option("--test-generate", "Run a minimal generation test when possible")
     .action(async (options) => {
       const context = await loadRuntimeContext(process.cwd());
       const service = new AIDoctorService(context);
       const result = await service.diagnose({
         skipNetwork: options.skipNetwork === true,
-        section: options.section
+        section: options.section,
+        testGenerate: options.testGenerate === true
       });
 
       console.table([
@@ -91,11 +93,16 @@ export function registerAICommands(program: Command): void {
           network_checked: result.networkChecked ? "yes" : "no",
           network_ok: result.networkOk ? "yes" : "no",
           network_error_type: result.networkErrorType ?? "",
+          generation_checked: result.generationChecked ? "yes" : "no",
+          generation_ok: result.generationOk ? "yes" : "no",
+          generation_error_type: result.generationErrorType ?? "",
+          request_id: result.generationRequestId ?? "",
           http_status: result.httpStatus ?? ""
         }
       ]);
 
       console.log(`config: ${result.configMessage}`);
       console.log(`network: ${result.networkMessage}`);
+      console.log(`generation: ${result.generationMessage}`);
     });
 }
