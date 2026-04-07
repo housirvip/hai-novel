@@ -16,11 +16,13 @@ import { GenerationRunRepository } from "../../db/repositories/generation-run-re
 import { HookChapterLinkRepository } from "../../db/repositories/hook-chapter-link-repository.js";
 import { ProjectRepository } from "../../db/repositories/project-repository.js";
 import type {
+  ChapterDraftRecord,
   ChapterRecord,
   ChapterExportResult,
   ChapterExportSource,
   ChapterGenerationContext,
   ChapterPlanGenerationResult,
+  ChapterPlanRecord,
   ChapterShowResult,
   CreateChapterInput,
   ExportChapterInput,
@@ -130,6 +132,10 @@ export class ChapterService {
         planText: plan.plan_text,
         planMeta: plan
       });
+      const exportedPlan = planRepository.markExported(
+        plan.id,
+        relativeToAppRoot(this.context.appRoot, exportResult.exportPath)
+      );
 
       logger.success(
         `chapter:plan chapter=${input.chapterId} plan=${plan.id} export=${relativeToAppRoot(
@@ -139,7 +145,7 @@ export class ChapterService {
       );
 
       return {
-        plan,
+        plan: exportedPlan,
         generationRunId: run.id,
         exportPath: exportResult.exportPath
       };
@@ -207,6 +213,20 @@ export class ChapterService {
         draftMeta,
         finalText
       });
+
+      if (input.source === "plan" && planMeta) {
+        planRepository.markExported(
+          planMeta.id,
+          relativeToAppRoot(this.context.appRoot, result.exportPath)
+        );
+      }
+
+      if (input.source === "draft" && draftMeta) {
+        draftRepository.markExported(
+          draftMeta.id,
+          relativeToAppRoot(this.context.appRoot, result.exportPath)
+        );
+      }
 
       logger.success(
         `chapter:export chapter=${input.chapterId} source=${input.source} file=${relativeToAppRoot(
@@ -285,9 +305,9 @@ export class ChapterService {
     project: { name: string };
     source: ChapterExportSource;
     planText?: string;
-    planMeta?: { id: number; source_type: string; status: string; author_intent: string | null };
+    planMeta?: ChapterPlanRecord;
     draftText?: string;
-    draftMeta?: { id: number; status: string; plan_id: number | null };
+    draftMeta?: ChapterDraftRecord;
     finalText?: string;
   }): Promise<ChapterExportResult> {
     const markdown = this.renderChapterMarkdown(input);
@@ -317,9 +337,9 @@ export class ChapterService {
     project: { name: string };
     source: ChapterExportSource;
     planText?: string;
-    planMeta?: { id: number; source_type: string; status: string; author_intent: string | null };
+    planMeta?: ChapterPlanRecord;
     draftText?: string;
-    draftMeta?: { id: number; status: string; plan_id: number | null };
+    draftMeta?: ChapterDraftRecord;
     finalText?: string;
   }): string {
     if (input.source === "plan") {
@@ -328,6 +348,13 @@ export class ChapterService {
       }
 
       return [
+        this.buildMarkdownFrontmatter({
+          entityType: "chapter_plan",
+          entityId: input.planMeta.id,
+          projectId: input.chapter.project_id,
+          chapterId: input.chapter.id,
+          sourceVersion: input.planMeta.source_version
+        }),
         `# ${input.chapter.title} Plan`,
         "",
         `- 项目：${input.project.name}`,
@@ -356,6 +383,13 @@ export class ChapterService {
       }
 
       return [
+        this.buildMarkdownFrontmatter({
+          entityType: "chapter_draft",
+          entityId: input.draftMeta.id,
+          projectId: input.chapter.project_id,
+          chapterId: input.chapter.id,
+          sourceVersion: input.draftMeta.source_version
+        }),
         `# ${input.chapter.title} Draft`,
         "",
         `- 项目：${input.project.name}`,
@@ -391,6 +425,26 @@ export class ChapterService {
       "",
       "## 正式文稿",
       input.finalText,
+      ""
+    ].join("\n");
+  }
+
+  private buildMarkdownFrontmatter(input: {
+    entityType: "chapter_plan" | "chapter_draft";
+    entityId: number;
+    projectId: number;
+    chapterId: number;
+    sourceVersion: number;
+  }): string {
+    return [
+      "---",
+      `entity_type: ${input.entityType}`,
+      `entity_id: ${input.entityId}`,
+      `chapter_id: ${input.chapterId}`,
+      `project_id: ${input.projectId}`,
+      `source_version: ${input.sourceVersion}`,
+      `exported_at: ${new Date().toISOString()}`,
+      "---",
       ""
     ].join("\n");
   }

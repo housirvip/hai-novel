@@ -243,5 +243,22 @@ export const migrations: MigrationDefinition[] = [
       CREATE INDEX IF NOT EXISTS idx_generation_runs_template_key
       ON generation_runs(template_key);
     `
+  },
+  {
+    id: "003_markdown_roundtrip_metadata",
+    sql: `
+      -- 为 plan / draft 补充 Markdown 回写和版本冲突检测所需字段。
+      ALTER TABLE chapter_plans ADD COLUMN source_version INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE chapter_plans ADD COLUMN last_export_path TEXT;
+      ALTER TABLE chapter_plans ADD COLUMN last_exported_at TEXT;
+      ALTER TABLE chapter_plans ADD COLUMN last_imported_at TEXT;
+      ALTER TABLE chapter_plans ADD COLUMN updated_from TEXT NOT NULL DEFAULT 'ai_generate';
+
+      ALTER TABLE chapter_drafts ADD COLUMN source_version INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE chapter_drafts ADD COLUMN last_export_path TEXT;
+      ALTER TABLE chapter_drafts ADD COLUMN last_exported_at TEXT;
+      ALTER TABLE chapter_drafts ADD COLUMN last_imported_at TEXT;
+      ALTER TABLE chapter_drafts ADD COLUMN updated_from TEXT NOT NULL DEFAULT 'ai_generate';
+    `
   }
 ];

@@ -37,4 +37,40 @@ export function registerPlanCommands(program: Command): void {
       logger.info("plan_text:");
       console.log(result.plan.plan_text);
     });
+
+  plan
+    .command("import")
+    .description("Import an edited plan Markdown file back into the database.")
+    .requiredOption("--chapter <id>", "Chapter id", (value: string) =>
+      parseRequiredIntegerOption(value, "--chapter")
+    )
+    .requiredOption("--input <path>", "Markdown file path")
+    .option("--force", "Ignore source version conflict and force import")
+    .action(async (options) => {
+      await assertInitialized(process.cwd());
+      const context = await loadRuntimeContext(process.cwd());
+      const service = new PlanService(context);
+      const result = await service.importPlan({
+        chapterId: options.chapter,
+        inputPath: options.input,
+        force: options.force === true
+      });
+
+      console.table([
+        {
+          plan_id: result.plan.id,
+          chapter_id: result.plan.chapter_id,
+          source_version: result.plan.source_version,
+          updated_from: result.plan.updated_from,
+          import_path: result.importPath
+        }
+      ]);
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel plan import --chapter 1 --input exports/chapter-001-plan.md
+  novel plan import --chapter 1 --input exports/chapter-001-plan.md --force`
+    );
 }

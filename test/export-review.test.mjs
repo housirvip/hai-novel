@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
   createWorkspace,
   hasWorkspaceFile,
@@ -198,4 +199,94 @@ test("DraftService review 会检查主角、势力、钩子和摘要是否真正
   } finally {
     database.close();
   }
+});
+
+test("plan 和 draft 导出的 Markdown 支持手工修改后回写", async () => {
+  const workspace = createWorkspace("hai-novel-markdown-import-");
+  const context = await initWorkspace(workspace);
+
+  const { ProjectService } = await importDist("app/services/project-service.js");
+  const { ChapterService } = await importDist("app/services/chapter-service.js");
+  const { PlanService } = await importDist("app/services/plan-service.js");
+  const { DraftService } = await importDist("app/services/draft-service.js");
+
+  const projectService = new ProjectService(context);
+  const chapterService = new ChapterService(context);
+  const planService = new PlanService(context);
+  const draftService = new DraftService(context);
+
+  const project = projectService.createProject({
+    name: "Markdown 回写测试",
+    genre: "仙侠",
+    premise: "主角卷入宗门纷争",
+    style: "克制"
+  });
+  const chapter = chapterService.createChapter({
+    projectId: project.id,
+    title: "第001章 雨夜入宗",
+    summary: "主角夜入山门，局势未明"
+  });
+
+  const planResult = await chapterService.generatePlan({
+    projectId: project.id,
+    chapterId: chapter.id,
+    intent: "突出压迫感"
+  });
+
+  const exportedPlanMarkdown = readFileSync(planResult.exportPath, "utf8");
+  assert.match(exportedPlanMarkdown, /^---\nentity_type: chapter_plan/m);
+  const editedPlanMarkdown = exportedPlanMarkdown.replace(
+    /## 作者意图[\s\S]*?## 规划正文\n[\s\S]*$/m,
+    [
+      "## 作者意图",
+      "强调宗门门规压力",
+      "",
+      "## 规划正文",
+      "这是作者手工回写后的章节规划。",
+      "需要突出雨夜、门规和试探感。",
+      ""
+    ].join("\n")
+  );
+  writeFileSync(planResult.exportPath, editedPlanMarkdown, "utf8");
+
+  const importedPlan = await planService.importPlan({
+    chapterId: chapter.id,
+    inputPath: planResult.exportPath
+  });
+  assert.equal(importedPlan.plan.source_version, 2);
+  assert.equal(importedPlan.plan.updated_from, "manual_import");
+  assert.match(importedPlan.plan.plan_text, /作者手工回写后的章节规划/);
+  assert.match(importedPlan.plan.author_intent ?? "", /宗门门规压力/);
+
+  const draftWriteResult = await draftService.writeDraft({
+    projectId: project.id,
+    chapterId: chapter.id
+  });
+
+  const exportedDraftMarkdown = readFileSync(draftWriteResult.exportPath, "utf8");
+  assert.match(exportedDraftMarkdown, /^---\nentity_type: chapter_draft/m);
+  const editedDraftMarkdown = exportedDraftMarkdown.replace(
+    /## 草稿正文\n[\s\S]*$/m,
+    ["## 草稿正文", "这是作者手工修订后的草稿正文。", "林渡抬头看向雨夜里的山门。", ""].join(
+      "\n"
+    )
+  );
+  writeFileSync(draftWriteResult.exportPath, editedDraftMarkdown, "utf8");
+
+  const importedDraft = await draftService.importDraft({
+    draftId: draftWriteResult.draft.id,
+    inputPath: draftWriteResult.exportPath
+  });
+  assert.equal(importedDraft.draft.source_version, 2);
+  assert.equal(importedDraft.draft.updated_from, "manual_import");
+  assert.match(importedDraft.draft.draft_text, /作者手工修订后的草稿正文/);
+
+  const approveResult = await draftService.reviewDraft({
+    draftId: draftWriteResult.draft.id,
+    action: "approve"
+  });
+  assert.match(approveResult.draft.draft_text, /作者手工修订后的草稿正文/);
+
+  const chapterDetail = chapterService.showChapter(chapter.id);
+  assert.match(chapterDetail.chapter.final_text ?? "", /作者手工修订后的草稿正文/);
 });

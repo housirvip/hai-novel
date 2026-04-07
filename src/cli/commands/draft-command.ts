@@ -130,4 +130,40 @@ Examples:
 Examples:
   novel draft drop --draft 3`
     );
+
+  draft
+    .command("import")
+    .description("Import an edited draft Markdown file back into the database.")
+    .requiredOption("--draft <id>", "Draft id", (value: string) =>
+      parseRequiredIntegerOption(value, "--draft")
+    )
+    .requiredOption("--input <path>", "Markdown file path")
+    .option("--force", "Ignore source version conflict and force import")
+    .action(async (options) => {
+      await assertInitialized(process.cwd());
+      const context = await loadRuntimeContext(process.cwd());
+      const service = new DraftService(context);
+      const result = await service.importDraft({
+        draftId: options.draft,
+        inputPath: options.input,
+        force: options.force === true
+      });
+
+      console.table([
+        {
+          draft_id: result.draft.id,
+          chapter_id: result.draft.chapter_id,
+          source_version: result.draft.source_version,
+          updated_from: result.draft.updated_from,
+          import_path: result.importPath
+        }
+      ]);
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel draft import --draft 1 --input exports/chapter-001-draft.md
+  novel draft import --draft 1 --input exports/chapter-001-draft.md --force`
+    );
 }

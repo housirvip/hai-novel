@@ -189,6 +189,66 @@ test("边界异常场景会返回更明确的错误提示", () => {
   assert.match(missingOutlineResult.output, /outline set/);
 });
 
+test("Markdown 回写版本冲突会返回明确错误提示", () => {
+  const workspace = createWorkspace("hai-novel-import-conflict-");
+
+  runBuiltCli(workspace, ["init"]);
+  runBuiltCli(workspace, [
+    "project",
+    "create",
+    "--name",
+    "回写冲突测试",
+    "--genre",
+    "仙侠"
+  ]);
+  runBuiltCli(workspace, [
+    "chapter",
+    "create",
+    "--project",
+    "1",
+    "--title",
+    "第001章",
+    "--summary",
+    "章节摘要"
+  ]);
+  runBuiltCli(workspace, [
+    "chapter",
+    "plan",
+    "--project",
+    "1",
+    "--chapter",
+    "1"
+  ]);
+
+  const planPath = path.join(workspace, "exports", "chapter-001-plan.md");
+  const firstPlanMarkdown = readFileSync(planPath, "utf8").replace(
+    /## 规划正文\n[\s\S]*$/m,
+    ["## 规划正文", "第一次手工回写后的计划正文。", ""].join("\n")
+  );
+  writeFileSync(planPath, firstPlanMarkdown, "utf8");
+
+  runBuiltCli(workspace, [
+    "plan",
+    "import",
+    "--chapter",
+    "1",
+    "--input",
+    "exports/chapter-001-plan.md"
+  ]);
+
+  const conflictResult = runBuiltCliResult(workspace, [
+    "plan",
+    "import",
+    "--chapter",
+    "1",
+    "--input",
+    "exports/chapter-001-plan.md"
+  ]);
+  assert.equal(conflictResult.status, 1);
+  assert.match(conflictResult.output, /\[VERSION_CONFLICT\]/);
+  assert.match(conflictResult.output, /--force/);
+});
+
 test("核心命令帮助文本会展示示例", () => {
   const workspace = createWorkspace("hai-novel-help-");
 
@@ -199,6 +259,14 @@ test("核心命令帮助文本会展示示例", () => {
   const aiDoctorHelp = runBuiltCli(workspace, ["ai", "doctor", "--help"]);
   assert.match(aiDoctorHelp, /Examples:/);
   assert.match(aiDoctorHelp, /novel ai doctor --section all --test-generate --test-task chapter-plan --project 1 --chapter 1/);
+
+  const planImportHelp = runBuiltCli(workspace, ["plan", "import", "--help"]);
+  assert.match(planImportHelp, /Examples:/);
+  assert.match(planImportHelp, /novel plan import --chapter 1 --input exports\/chapter-001-plan.md/);
+
+  const draftImportHelp = runBuiltCli(workspace, ["draft", "import", "--help"]);
+  assert.match(draftImportHelp, /Examples:/);
+  assert.match(draftImportHelp, /novel draft import --draft 1 --input exports\/chapter-001-draft.md/);
 
   const runHelp = runBuiltCli(workspace, ["run", "export", "--help"]);
   assert.match(runHelp, /Examples:/);

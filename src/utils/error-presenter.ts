@@ -54,6 +54,34 @@ export function presentCliError(error: unknown): PresentedCliError {
     };
   }
 
+  if (message.includes("Markdown frontmatter is required")) {
+    return {
+      code: "MARKDOWN_FORMAT",
+      message,
+      hint: "请使用系统导出的 Markdown 模板回写，并保留文件头部的 frontmatter 元数据。"
+    };
+  }
+
+  if (
+    message.includes("Markdown metadata") ||
+    message.includes("Markdown entity_type mismatch") ||
+    message.includes("Markdown section")
+  ) {
+    return {
+      code: "MARKDOWN_FORMAT",
+      message,
+      hint: "检查 Markdown 的 entity_type、entity_id、source_version 以及正文 section 标题是否仍然存在。"
+    };
+  }
+
+  if (message.includes("import version conflict")) {
+    return {
+      code: "VERSION_CONFLICT",
+      message,
+      hint: "先重新导出最新 Markdown，或确认无误后改用 `--force` 强制回写。"
+    };
+  }
+
   if (message.includes("OpenAI provider requires `OPENAI_API_KEY`")) {
     return {
       code: "AI_CONFIG",

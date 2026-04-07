@@ -18,7 +18,8 @@ test("初始化可重复执行，且 generation_runs 包含模板快照字段", 
 
     assert.deepEqual(migrations, [
       "001_initial_schema",
-      "002_generation_runs_template_metadata"
+      "002_generation_runs_template_metadata",
+      "003_markdown_roundtrip_metadata"
     ]);
 
     const columns = database
@@ -30,6 +31,26 @@ test("初始化可重复执行，且 generation_runs 包含模板快照字段", 
     assert.equal(columns.includes("template_label"), true);
     assert.equal(columns.includes("template_version"), true);
     assert.equal(columns.includes("template_summary"), true);
+
+    const planColumns = database
+      .prepare("PRAGMA table_info(chapter_plans)")
+      .all()
+      .map((column) => column.name);
+    assert.equal(planColumns.includes("source_version"), true);
+    assert.equal(planColumns.includes("last_export_path"), true);
+    assert.equal(planColumns.includes("last_exported_at"), true);
+    assert.equal(planColumns.includes("last_imported_at"), true);
+    assert.equal(planColumns.includes("updated_from"), true);
+
+    const draftColumns = database
+      .prepare("PRAGMA table_info(chapter_drafts)")
+      .all()
+      .map((column) => column.name);
+    assert.equal(draftColumns.includes("source_version"), true);
+    assert.equal(draftColumns.includes("last_export_path"), true);
+    assert.equal(draftColumns.includes("last_exported_at"), true);
+    assert.equal(draftColumns.includes("last_imported_at"), true);
+    assert.equal(draftColumns.includes("updated_from"), true);
   } finally {
     database.close();
   }

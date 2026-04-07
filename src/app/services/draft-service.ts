@@ -1,3 +1,5 @@
+import path from "node:path";
+import { readFile } from "node:fs/promises";
 import { createDatabase } from "../../db/client.js";
 import { formatChapterContextAsText } from "../../ai/context-format.js";
 import {
@@ -16,16 +18,19 @@ import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
 import { GenerationRunRepository } from "../../db/repositories/generation-run-repository.js";
 import type {
   ChapterGenerationContext,
+  DraftImportResult,
   DraftReviewIssue,
   DraftReviewResult,
   DraftWriteResult,
+  ImportDraftInput,
   ReviewDraftInput,
   WriteDraftInput
 } from "../../domain/types/index.js";
 import { logger } from "../../utils/logger.js";
 import { ChapterContextBuilder } from "./chapter-context-builder.js";
-import type { RuntimeContext } from "./context-service.js";
+import { relativeToAppRoot, type RuntimeContext } from "./context-service.js";
 import { ChapterService } from "./chapter-service.js";
+import { MarkdownSyncService } from "./markdown-sync-service.js";
 
 export class DraftService {
   constructor(private readonly context: RuntimeContext) {}
@@ -194,6 +199,7 @@ export class DraftService {
         const updatedDraft = draftRepository.updateReview(input.draftId, {
           status: "generated",
           draftText: fixedDraft.text,
+          updatedFrom: "ai_fix",
           reviewNotes: input.notes ?? draft.review_notes,
           reviewReport
         });
@@ -288,6 +294,66 @@ export class DraftService {
         status: "dropped"
       });
       logger.success(`draft:drop draft=${draftId}`);
+    } finally {
+      database.close();
+    }
+  }
+
+  async importDraft(input: ImportDraftInput): Promise<DraftImportResult> {
+    logger.start(`draft:import draft=${input.draftId}`);
+
+    const importPath = path.resolve(this.context.appRoot, input.inputPath);
+    const markdown = await readFile(importPath, "utf8");
+    const markdownSyncService = new MarkdownSyncService();
+    const parsed = markdownSyncService.parseDocument(markdown);
+
+    markdownSyncService.expectEntityType(parsed.metadata, "chapter_draft");
+
+    const entityId = markdownSyncService.requireIntegerMetadata(parsed.metadata, "entity_id");
+    const chapterId = markdownSyncService.requireIntegerMetadata(parsed.metadata, "chapter_id");
+    const sourceVersion = markdownSyncService.requireIntegerMetadata(
+      parsed.metadata,
+      "source_version"
+    );
+
+    if (entityId !== input.draftId) {
+      throw new Error(`Draft import target mismatch: command=${input.draftId}, file=${entityId}.`);
+    }
+
+    const draftText = markdownSyncService.extractSection(parsed.content, "草稿正文");
+
+    const database = createDatabase(this.context.dbPath);
+    try {
+      const draftRepository = new ChapterDraftRepository(database);
+      const draft = draftRepository.findById(input.draftId);
+      if (!draft) {
+        throw new Error(`Draft ${input.draftId} not found.`);
+      }
+
+      if (draft.chapter_id !== chapterId) {
+        throw new Error(
+          `Draft import chapter mismatch: draft=${draft.chapter_id}, file=${chapterId}.`
+        );
+      }
+
+      const updatedDraft = draftRepository.updateImportedContent({
+        draftId: input.draftId,
+        draftText,
+        expectedSourceVersion: sourceVersion,
+        force: input.force
+      });
+
+      logger.success(
+        `draft:import draft=${input.draftId} file=${relativeToAppRoot(
+          this.context.appRoot,
+          importPath
+        )}`
+      );
+
+      return {
+        draft: updatedDraft,
+        importPath
+      };
     } finally {
       database.close();
     }

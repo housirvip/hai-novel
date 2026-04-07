@@ -641,6 +641,16 @@ export interface ChapterPlanRecord {
   plan_text: string;
   /** 当前状态，例如 active / archived。 */
   status: string;
+  /** 当前正文版本号；每次生成新正文或手工回写后递增。 */
+  source_version: number;
+  /** 最近一次导出文件的工作区相对路径，可为空。 */
+  last_export_path: string | null;
+  /** 最近一次导出时间，可为空。 */
+  last_exported_at: string | null;
+  /** 最近一次手工回写时间，可为空。 */
+  last_imported_at: string | null;
+  /** 最近一次正文更新来源，例如 ai_generate / manual_import。 */
+  updated_from: string;
   /** 创建时间。 */
   created_at: string;
   /** 最近更新时间。 */
@@ -694,6 +704,16 @@ export interface ChapterDraftRecord {
   draft_text: string;
   /** 草稿状态，例如 generated / checked / approved / dropped。 */
   status: string;
+  /** 当前正文版本号；每次生成新正文、fix 或手工回写后递增。 */
+  source_version: number;
+  /** 最近一次导出文件的工作区相对路径，可为空。 */
+  last_export_path: string | null;
+  /** 最近一次导出时间，可为空。 */
+  last_exported_at: string | null;
+  /** 最近一次手工回写时间，可为空。 */
+  last_imported_at: string | null;
+  /** 最近一次正文更新来源，例如 ai_generate / ai_fix / manual_import。 */
+  updated_from: string;
   /** 评审备注，可为空。 */
   review_notes: string | null;
   /** 评审报告，可为空。 */
@@ -948,6 +968,12 @@ export interface ChapterGenerationContext {
 export type ChapterExportSource = "plan" | "draft" | "final";
 
 /**
+ * 正文更新来源类型。
+ * 用于标记当前版本是 AI 生成、AI 修订还是作者手工回写得到的。
+ */
+export type ContentUpdateSource = "ai_generate" | "ai_fix" | "manual_import";
+
+/**
  * 章节规划生成结果。
  * 用于把落库结果和自动导出的 Markdown 路径一起返回给命令层。
  */
@@ -969,6 +995,28 @@ export interface ChapterPlanShowResult {
   chapter: ChapterDetail;
   /** 当前查看到的规划记录。 */
   plan: ChapterPlanRecord;
+}
+
+/**
+ * 手工回写章节规划时的输入结构。
+ */
+export interface ImportPlanInput {
+  /** 目标章节 ID。 */
+  chapterId: number;
+  /** Markdown 文件路径。 */
+  inputPath: string;
+  /** 是否忽略版本冲突。 */
+  force?: boolean;
+}
+
+/**
+ * 章节规划回写结果。
+ */
+export interface ChapterPlanImportResult {
+  /** 回写后的最新规划记录。 */
+  plan: ChapterPlanRecord;
+  /** 实际读取的 Markdown 绝对路径。 */
+  importPath: string;
 }
 
 /**
@@ -996,6 +1044,28 @@ export interface DraftWriteResult {
   generationRunId: number;
   /** 自动导出的 Markdown 绝对路径。 */
   exportPath: string;
+}
+
+/**
+ * 手工回写草稿时的输入结构。
+ */
+export interface ImportDraftInput {
+  /** 草稿 ID。 */
+  draftId: number;
+  /** Markdown 文件路径。 */
+  inputPath: string;
+  /** 是否忽略版本冲突。 */
+  force?: boolean;
+}
+
+/**
+ * 草稿回写结果。
+ */
+export interface DraftImportResult {
+  /** 回写后的最新草稿记录。 */
+  draft: ChapterDraftRecord;
+  /** 实际读取的 Markdown 绝对路径。 */
+  importPath: string;
 }
 
 /**
