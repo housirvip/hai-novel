@@ -147,7 +147,7 @@ export class DraftService {
 
       if (input.action === "check") {
         logger.progress("draft:review 1/2 执行规则检查");
-        const issues = this.reviewIssues(draft.draft_text);
+        const issues = this.reviewIssues(chapterContext, draft.draft_text);
         const reviewReport = this.serializeIssues(issues);
         const updatedDraft = draftRepository.updateReview(input.draftId, {
           status: "checked",
@@ -180,7 +180,7 @@ export class DraftService {
 
       if (input.action === "fix") {
         logger.progress("draft:review 1/3 执行规则检查");
-        const issues = this.reviewIssues(draft.draft_text);
+        const issues = this.reviewIssues(chapterContext, draft.draft_text);
         const templateMetadata = getPromptTemplateMetadata("draft-fix");
         const fixedDraft = await this.generateFixedDraft(
           chapterContext,
@@ -234,7 +234,7 @@ export class DraftService {
       }
 
       logger.progress("draft:review 1/3 读取草稿并生成检查报告");
-      const issues = this.reviewIssues(draft.draft_text);
+      const issues = this.reviewIssues(chapterContext, draft.draft_text);
       const reviewReport = this.serializeIssues(issues);
 
       logger.progress("draft:review 2/3 批准草稿并同步 final");
@@ -304,7 +304,7 @@ export class DraftService {
 
     if (settings.provider !== "openai") {
       return {
-        text: this.fixDraftText(draftText, issues, notes),
+        text: this.fixDraftText(context, draftText, issues, notes),
         model: "rule-reviewer-v1",
         prompt
       };
@@ -327,7 +327,10 @@ export class DraftService {
     };
   }
 
-  private reviewIssues(draftText: string): DraftReviewIssue[] {
+  private reviewIssues(
+    context: ChapterGenerationContext,
+    draftText: string
+  ): DraftReviewIssue[] {
     const issues: DraftReviewIssue[] = [];
     const trimmedText = draftText.trim();
 
@@ -380,6 +383,51 @@ export class DraftService {
       });
     }
 
+    const protagonist = this.resolvePrimaryCharacterName(context);
+    if (protagonist && !draftText.includes(protagonist)) {
+      issues.push({
+        level: "warning",
+        title: "主角存在感不足",
+        detail: `当前草稿没有明确写到核心人物“${protagonist}”，章节视角和代入感可能会发虚。`
+      });
+    }
+
+    const summaryKeywords = this.extractKeywords(context.chapter.summary);
+    if (
+      summaryKeywords.length > 0 &&
+      !summaryKeywords.some((keyword) => draftText.includes(keyword))
+    ) {
+      issues.push({
+        level: "warning",
+        title: "章节摘要落地不足",
+        detail: "草稿和章节摘要的关键信息呼应较弱，建议补足本章承诺的事件或意象。"
+      });
+    }
+
+    const factionNames = this.resolveImportantFactionNames(context);
+    if (
+      factionNames.length > 0 &&
+      !factionNames.some((factionName) => draftText.includes(factionName))
+    ) {
+      issues.push({
+        level: "warning",
+        title: "势力上下文吸收不足",
+        detail: "草稿几乎没有体现当前章节相关势力，组织压力和阵营氛围可能没有真正落地。"
+      });
+    }
+
+    const hookKeywords = this.resolveHookKeywords(context);
+    if (
+      hookKeywords.length > 0 &&
+      !hookKeywords.some((keyword) => draftText.includes(keyword))
+    ) {
+      issues.push({
+        level: "warning",
+        title: "钩子推进不明显",
+        detail: "本章已绑定或应推进的钩子没有在正文中留下足够清晰的痕迹，后续追踪可能会断线。"
+      });
+    }
+
     if (issues.length === 0) {
       issues.push({
         level: "warning",
@@ -396,6 +444,7 @@ export class DraftService {
   }
 
   private fixDraftText(
+    context: ChapterGenerationContext,
     draftText: string,
     issues: DraftReviewIssue[],
     notes?: string
@@ -419,6 +468,50 @@ export class DraftService {
       ].join("\n");
     }
 
+    if (issues.some((issue) => issue.title === "主角存在感不足")) {
+      const protagonist = this.resolvePrimaryCharacterName(context);
+      if (protagonist && !fixedText.includes(protagonist)) {
+        fixedText = [
+          fixedText,
+          "",
+          `${protagonist}抬眼望向山门深处，那一瞬间，他清楚自己已经被卷进一场不能轻易抽身的局里。`
+        ].join("\n");
+      }
+    }
+
+    if (issues.some((issue) => issue.title === "势力上下文吸收不足")) {
+      const factionName = this.resolveImportantFactionNames(context)[0];
+      if (factionName && !fixedText.includes(factionName)) {
+        fixedText = [
+          fixedText,
+          "",
+          `风雨压在${factionName}的山门之上，连最寻常的一次进退，都像被无形的规矩和立场牵住。`
+        ].join("\n");
+      }
+    }
+
+    if (issues.some((issue) => issue.title === "钩子推进不明显")) {
+      const hookKeyword = this.resolveHookKeywords(context)[0];
+      if (hookKeyword && !fixedText.includes(hookKeyword)) {
+        fixedText = [
+          fixedText,
+          "",
+          `${hookKeyword}在这一刻显得格外异常，像是沉默已久的暗线终于轻轻动了一下。`
+        ].join("\n");
+      }
+    }
+
+    if (issues.some((issue) => issue.title === "章节摘要落地不足")) {
+      const summaryKeyword = this.extractKeywords(context.chapter.summary)[0];
+      if (summaryKeyword && !fixedText.includes(summaryKeyword)) {
+        fixedText = [
+          fixedText,
+          "",
+          `这一夜真正改变局面的，并不是表面的平静，而是“${summaryKeyword}”背后那层刚刚露头的异样。`
+        ].join("\n");
+      }
+    }
+
     if (notes) {
       fixedText = [
         fixedText,
@@ -428,5 +521,87 @@ export class DraftService {
     }
 
     return fixedText.trim();
+  }
+
+  private resolvePrimaryCharacterName(context: ChapterGenerationContext): string | undefined {
+    return (
+      context.characters.find((character) => character.role === "protagonist")?.name ??
+      context.characters[0]?.name
+    );
+  }
+
+  private resolveImportantFactionNames(context: ChapterGenerationContext): string[] {
+    const names = new Set<string>();
+
+    const protagonist = this.resolvePrimaryCharacterName(context);
+    if (protagonist) {
+      for (const relation of context.character_faction_relations) {
+        if (relation.character_name === protagonist) {
+          names.add(relation.faction_name);
+        }
+      }
+    }
+
+    for (const faction of context.factions.slice(0, 2)) {
+      names.add(faction.name);
+    }
+
+    return [...names].filter((name) => name.trim().length > 0);
+  }
+
+  private resolveHookKeywords(context: ChapterGenerationContext): string[] {
+    const values = new Set<string>();
+
+    for (const link of context.hook_links) {
+      for (const keyword of this.extractKeywords(link.hook_title)) {
+        values.add(keyword);
+      }
+
+      for (const keyword of this.extractKeywords(link.planned_note)) {
+        values.add(keyword);
+      }
+    }
+
+    for (const hook of context.target_hooks) {
+      for (const keyword of this.extractKeywords(hook.title)) {
+        values.add(keyword);
+      }
+    }
+
+    return [...values];
+  }
+
+  private extractKeywords(value: string | null | undefined): string[] {
+    if (!value) {
+      return [];
+    }
+
+    const rawKeywords = value.match(/[\u4e00-\u9fa5A-Za-z0-9]{2,}/g) ?? [];
+    const ignored = new Set([
+      "本章",
+      "当前",
+      "计划",
+      "推进",
+      "异常",
+      "目标",
+      "后续",
+      "需要",
+      "主角"
+    ]);
+
+    const result: string[] = [];
+    for (const keyword of rawKeywords) {
+      if (ignored.has(keyword)) {
+        continue;
+      }
+
+      if (result.includes(keyword)) {
+        continue;
+      }
+
+      result.push(keyword);
+    }
+
+    return result;
   }
 }
