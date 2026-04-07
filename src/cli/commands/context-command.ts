@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { createDatabase } from "../../db/client.js";
-import { ChapterContextBuilder, formatChapterContextAsText } from "../../app/services/chapter-context-builder.js";
+import { formatChapterContextAsText } from "../../ai/context-format.js";
+import { ChapterContextBuilder } from "../../app/services/chapter-context-builder.js";
 import { loadRuntimeContext } from "../../app/services/context-service.js";
 import { assertInitialized, parseRequiredIntegerOption } from "../command-helpers.js";
 
