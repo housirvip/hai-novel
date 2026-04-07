@@ -8,6 +8,31 @@ import {
   parseRequiredIntegerOption
 } from "../command-helpers.js";
 
+type RunShowSection = "all" | "meta" | "prompt" | "input" | "output";
+
+function parseRunShowSection(value: string): RunShowSection {
+  if (
+    value === "all" ||
+    value === "meta" ||
+    value === "prompt" ||
+    value === "input" ||
+    value === "output"
+  ) {
+    return value;
+  }
+
+  throw new Error("`--section` must be one of: all, meta, prompt, input, output.");
+}
+
+function formatMaybeJson(value: string): string {
+  try {
+    // 输入上下文大多是结构化 JSON，这里优先做美化，方便直接阅读。
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return value;
+  }
+}
+
 export function registerRunCommands(program: Command): void {
   const run = program.command("run").description("Generation run history commands.");
 
@@ -60,37 +85,57 @@ export function registerRunCommands(program: Command): void {
     .requiredOption("--id <id>", "Run id", (value: string) =>
       parseRequiredIntegerOption(value, "--id")
     )
+    .option(
+      "--section <section>",
+      "Section to show: all|meta|prompt|input|output",
+      parseRunShowSection,
+      "all"
+    )
     .action(async (options) => {
       await assertInitialized(process.cwd());
       const context = await loadRuntimeContext(process.cwd());
       const service = new RunService(context);
       const runRecord = service.showRun(options.id);
 
-      console.table([
-        {
-          id: runRecord.id,
-          project_id: runRecord.project_id,
-          chapter_id: runRecord.chapter_id ?? "",
-          run_type: runRecord.run_type,
-          model: runRecord.model ?? "",
-          status: runRecord.status,
-          created_at: runRecord.created_at
+      if (options.section === "all" || options.section === "meta") {
+        console.table([
+          {
+            id: runRecord.id,
+            project_id: runRecord.project_id,
+            chapter_id: runRecord.chapter_id ?? "",
+            run_type: runRecord.run_type,
+            model: runRecord.model ?? "",
+            status: runRecord.status,
+            created_at: runRecord.created_at
+          }
+        ]);
+      }
+
+      if (options.section === "all" || options.section === "prompt") {
+        if (runRecord.prompt_text) {
+          logger.info("prompt_text:");
+          console.log(runRecord.prompt_text);
+        } else if (options.section !== "all") {
+          logger.info("No prompt_text found.");
         }
-      ]);
-
-      if (runRecord.prompt_text) {
-        logger.info("prompt_text:");
-        console.log(runRecord.prompt_text);
       }
 
-      if (runRecord.input_context) {
-        logger.info("input_context:");
-        console.log(runRecord.input_context);
+      if (options.section === "all" || options.section === "input") {
+        if (runRecord.input_context) {
+          logger.info("input_context:");
+          console.log(formatMaybeJson(runRecord.input_context));
+        } else if (options.section !== "all") {
+          logger.info("No input_context found.");
+        }
       }
 
-      if (runRecord.output_text) {
-        logger.info("output_text:");
-        console.log(runRecord.output_text);
+      if (options.section === "all" || options.section === "output") {
+        if (runRecord.output_text) {
+          logger.info("output_text:");
+          console.log(runRecord.output_text);
+        } else if (options.section !== "all") {
+          logger.info("No output_text found.");
+        }
       }
     });
 }
