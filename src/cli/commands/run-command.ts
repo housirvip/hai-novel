@@ -1,6 +1,10 @@
 import { Command } from "commander";
 import { loadRuntimeContext } from "../../app/services/context-service.js";
-import { RunService, shortenRunText } from "../../app/services/run-service.js";
+import {
+  RunService,
+  formatRunValue,
+  shortenRunText
+} from "../../app/services/run-service.js";
 import { logger } from "../../utils/logger.js";
 import {
   assertInitialized,
@@ -9,6 +13,7 @@ import {
 } from "../command-helpers.js";
 
 type RunShowSection = "all" | "meta" | "prompt" | "input" | "output";
+type RunExportFormat = "md" | "json";
 
 function parseRunShowSection(value: string): RunShowSection {
   if (
@@ -24,13 +29,12 @@ function parseRunShowSection(value: string): RunShowSection {
   throw new Error("`--section` must be one of: all, meta, prompt, input, output.");
 }
 
-function formatMaybeJson(value: string): string {
-  try {
-    // 输入上下文大多是结构化 JSON，这里优先做美化，方便直接阅读。
-    return JSON.stringify(JSON.parse(value), null, 2);
-  } catch {
+function parseRunExportFormat(value: string): RunExportFormat {
+  if (value === "md" || value === "json") {
     return value;
   }
+
+  throw new Error("`--format` must be one of: md, json.");
 }
 
 function formatTemplateSnapshot(input: {
@@ -142,7 +146,7 @@ export function registerRunCommands(program: Command): void {
       if (options.section === "all" || options.section === "input") {
         if (runRecord.input_context) {
           logger.info("input_context:");
-          console.log(formatMaybeJson(runRecord.input_context));
+          console.log(formatRunValue(runRecord.input_context));
         } else if (options.section !== "all") {
           logger.info("No input_context found.");
         }
@@ -156,5 +160,40 @@ export function registerRunCommands(program: Command): void {
           logger.info("No output_text found.");
         }
       }
+    });
+
+  run
+    .command("export")
+    .description("Export a generation run into Markdown or JSON.")
+    .requiredOption("--id <id>", "Run id", (value: string) =>
+      parseRequiredIntegerOption(value, "--id")
+    )
+    .option(
+      "--section <section>",
+      "Section to export: all|meta|prompt|input|output",
+      parseRunShowSection,
+      "all"
+    )
+    .option("--format <format>", "Export format: md|json", parseRunExportFormat, "md")
+    .option("--output <path>", "Optional custom export path")
+    .action(async (options) => {
+      await assertInitialized(process.cwd());
+      const context = await loadRuntimeContext(process.cwd());
+      const service = new RunService(context);
+      const result = await service.exportRun({
+        runId: options.id,
+        section: options.section,
+        format: options.format,
+        outputPath: options.output
+      });
+
+      console.table([
+        {
+          run_id: result.runId,
+          section: result.section,
+          format: result.format,
+          export_path: result.exportPath
+        }
+      ]);
     });
 }

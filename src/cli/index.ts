@@ -44,6 +44,7 @@ registerDraftCommands(program);
 registerHookCommands(program);
 
 program.showHelpAfterError();
+program.showSuggestionAfterError();
 
 try {
   // 命令注册统一收口在这里，后续新增模块只需要接入一个入口。

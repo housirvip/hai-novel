@@ -12,6 +12,7 @@
 - `review check / fix / approve`
 - `plan / draft / final` Markdown 导出
 - 生成历史、prompt 查看、AI 状态检查
+- 生成历史导出为 Markdown / JSON
 
 ## 环境要求
 
@@ -158,6 +159,7 @@ novel draft review
 novel draft drop
 novel run history
 novel run show
+novel run export
 novel prompt chapter-plan
 novel prompt draft-write
 novel prompt draft-fix
@@ -182,6 +184,27 @@ export OPENAI_API_KEY="your_key"
 npm run dev -- ai status
 npm run dev -- ai doctor
 ```
+
+## 生成历史导出
+
+查看历史：
+
+```bash
+npm run dev -- run history --project 1 --limit 10
+npm run dev -- run show --id 3 --section all
+```
+
+导出历史：
+
+```bash
+npm run dev -- run export --id 3 --section all --format md
+npm run dev -- run export --id 3 --section meta --format json --output exports/run-meta.json
+```
+
+默认导出目录：
+
+- `exports/runs/run-003-all.md`
+- `exports/runs/run-003-meta.json`
 
 ## 项目结构
 

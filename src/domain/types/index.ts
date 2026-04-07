@@ -1128,6 +1128,48 @@ export interface FindGenerationRunsInput {
 }
 
 /**
+ * 生成记录查看分区。
+ * 与 CLI 的 `run show/export --section` 保持一致，便于历史回放和导出复用同一套语义。
+ */
+export type RunRecordSection = "all" | "meta" | "prompt" | "input" | "output";
+
+/**
+ * 生成记录导出格式。
+ * V1 先支持 Markdown 和 JSON，分别面向人工阅读和程序处理。
+ */
+export type RunExportFormat = "md" | "json";
+
+/**
+ * 导出生成记录时的输入结构。
+ */
+export interface ExportRunInput {
+  /** 生成记录 ID。 */
+  runId: number;
+  /** 要导出的分区。 */
+  section: RunRecordSection;
+  /** 导出格式。 */
+  format: RunExportFormat;
+  /** 可选自定义导出路径。 */
+  outputPath?: string;
+}
+
+/**
+ * 导出生成记录后的结果。
+ */
+export interface RunExportResult {
+  /** 生成记录 ID。 */
+  runId: number;
+  /** 导出的分区。 */
+  section: RunRecordSection;
+  /** 导出格式。 */
+  format: RunExportFormat;
+  /** 实际写入的绝对路径。 */
+  exportPath: string;
+  /** 实际写出的内容。 */
+  content: string;
+}
+
+/**
  * 创建生成记录时的输入结构。
  */
 export interface CreateGenerationRunInput {

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -50,4 +51,18 @@ export async function openWorkspaceDatabase(workspace) {
  */
 export function hasWorkspaceFile(workspace, ...segments) {
   return existsSync(path.join(workspace, ...segments));
+}
+
+/**
+ * 运行编译后的 CLI，适合做端到端命令测试。
+ */
+export function runBuiltCli(cwd, args) {
+  const cliEntry = path.join(rootDir, "dist", "cli", "index.js");
+  return execFileSync(process.execPath, [cliEntry, ...args], {
+    cwd,
+    encoding: "utf8",
+    env: {
+      ...process.env
+    }
+  });
 }
