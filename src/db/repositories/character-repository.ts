@@ -49,6 +49,7 @@ export class CharacterRepository {
       input.notes ?? null
     );
 
+    // 插入后重新查询一次，保证返回值和列表查询使用同一套读取结构。
     const character = this.findById(Number(result.lastInsertRowid));
     if (!character) {
       throw new Error("Failed to load character after creation.");
@@ -58,6 +59,7 @@ export class CharacterRepository {
   }
 
   findAllByProjectId(projectId: number): CharacterListItem[] {
+    // 这里直接把势力名联出来，命令层就不用再做额外查询拼装展示结果。
     const statement = this.database.prepare<[number], CharacterListItem>(
       `SELECT
          c.id,

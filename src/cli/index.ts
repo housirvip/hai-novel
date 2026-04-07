@@ -24,6 +24,7 @@ registerRelationCommands(program);
 program.showHelpAfterError();
 
 try {
+  // 命令注册统一收口在这里，后续新增模块只需要接入一个入口。
   await program.parseAsync(process.argv);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);

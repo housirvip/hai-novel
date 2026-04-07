@@ -20,6 +20,7 @@ export class RelationService {
       `relation:character:add project=${input.projectId} from=${input.characterId} to=${input.relatedCharacterId}`
     );
 
+    // 关系命令后面还会继续扩展，所以先把数据库管理收口在 service 层。
     const database = createDatabase(this.context.dbPath);
     try {
       const repository = new CharacterRelationRepository(database);

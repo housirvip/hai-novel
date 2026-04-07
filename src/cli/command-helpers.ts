@@ -14,6 +14,7 @@ export function parseOptionalIntegerOption(value: string, label: string): number
 }
 
 export async function assertInitialized(cwd: string): Promise<void> {
+  // 所有数据命令都依赖同一条约束：配置文件和数据库文件必须同时存在。
   const context = await loadRuntimeContext(cwd);
   const hasConfig = await pathExists(context.configPath);
   const hasDb = await pathExists(context.dbPath);

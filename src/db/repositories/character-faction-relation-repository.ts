@@ -40,6 +40,7 @@ export class CharacterFactionRelationRepository {
       input.isPrimary ? 1 : 0
     );
 
+    // 插入后重新查询一次，保证返回值和列表查询使用同一套读取结构。
     const relation = this.findById(Number(result.lastInsertRowid));
     if (!relation) {
       throw new Error("Failed to load character-faction relation after creation.");
@@ -52,6 +53,7 @@ export class CharacterFactionRelationRepository {
     projectId: number,
     filters?: { characterId?: number; factionId?: number }
   ): CharacterFactionRelationListItem[] {
+    // 逐步拼接过滤条件，让一个查询同时支持项目全量和按人物/势力筛选。
     const conditions: string[] = ["cfr.project_id = ?"];
     const params: number[] = [projectId];
 

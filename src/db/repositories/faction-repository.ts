@@ -24,6 +24,7 @@ export class FactionRepository {
       input.details ?? null
     );
 
+    // 插入后重新查询一次，保证返回值和列表查询使用同一套读取结构。
     const faction = this.findById(Number(result.lastInsertRowid));
     if (!faction) {
       throw new Error("Failed to load faction after creation.");

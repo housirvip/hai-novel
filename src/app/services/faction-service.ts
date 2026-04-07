@@ -10,6 +10,7 @@ export class FactionService {
   createFaction(input: CreateFactionInput): FactionRecord {
     logger.start(`faction:add project=${input.projectId} name="${input.name}"`);
 
+    // 当前阶段按“每次命令打开一次数据库”的方式实现，简单也更稳定。
     const database = createDatabase(this.context.dbPath);
     try {
       const repository = new FactionRepository(database);

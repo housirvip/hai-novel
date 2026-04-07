@@ -40,6 +40,7 @@ export async function readConfig(appRoot: string): Promise<AppConfig> {
   const raw = await readFile(configPath, "utf8");
   const parsed = JSON.parse(raw) as Partial<AppConfig>;
 
+  // 即使配置文件只写了一部分字段，也要回退到默认值，避免 CLI 启动失败。
   return {
     dbPath: parsed.dbPath ?? DEFAULT_DB_PATH,
     exportsDir: parsed.exportsDir ?? DEFAULT_EXPORTS_DIR

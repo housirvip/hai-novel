@@ -20,6 +20,7 @@ export interface InitResult {
 export async function initializeWorkspace(context: RuntimeContext): Promise<InitResult> {
   logger.start("init workspace");
 
+  // 先保证运行目录存在，后面写配置和创建 SQLite 文件才不会失败。
   await ensureDir(path.dirname(context.dbPath));
   await ensureDir(context.exportsDir);
 
@@ -31,6 +32,7 @@ export async function initializeWorkspace(context: RuntimeContext): Promise<Init
     logger.progress(`reused config ${path.basename(context.configPath)}`);
   }
 
+  // 只要打开数据库连接，SQLite 就会先把数据库文件创建出来。
   const database = createDatabase(context.dbPath);
   const appliedMigrations = runMigrations(database, migrations);
   database.close();

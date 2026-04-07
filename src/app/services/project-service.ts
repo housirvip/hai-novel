@@ -10,6 +10,7 @@ export class ProjectService {
   createProject(input: CreateProjectInput): ProjectRecord {
     logger.start(`project:create name="${input.name}"`);
 
+    // Service 层统一接管数据库生命周期，命令层只负责参数和输出。
     const database = createDatabase(this.context.dbPath);
     try {
       const repository = new ProjectRepository(database);

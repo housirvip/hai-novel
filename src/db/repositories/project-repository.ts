@@ -21,6 +21,7 @@ export class ProjectRepository {
       input.targetWordCount ?? null
     );
 
+    // 插入后重新查询一次，保证返回值和列表查询使用同一套读取结构。
     const project = this.findById(Number(result.lastInsertRowid));
     if (!project) {
       throw new Error("Failed to load project after creation.");

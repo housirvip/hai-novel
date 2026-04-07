@@ -7,6 +7,7 @@ export const migrations: MigrationDefinition[] = [
   {
     id: "001_initial_schema",
     sql: `
+      -- 第一条 migration 直接创建 V1 全量表结构，保证新工作区可以一次初始化完成。
       CREATE TABLE IF NOT EXISTS projects (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,

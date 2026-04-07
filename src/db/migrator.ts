@@ -31,6 +31,7 @@ export function runMigrations(
         continue;
       }
 
+      // 每条 migration 只执行一次，并且和执行标记写入放在同一个事务里。
       database.exec(migration.sql);
       insertMigration.run(migration.id);
       appliedCount += 1;

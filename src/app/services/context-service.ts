@@ -19,6 +19,7 @@ export interface RuntimeContext {
 }
 
 export async function loadRuntimeContext(cwd: string): Promise<RuntimeContext> {
+  // CLI 的所有运行时路径都以当前工作区根目录为基准解析。
   const appRoot = resolveAppRoot(cwd);
   const configPath = resolveConfigPath(appRoot);
   const hasConfig = await pathExists(configPath);

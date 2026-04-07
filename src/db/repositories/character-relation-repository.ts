@@ -29,6 +29,7 @@ export class CharacterRelationRepository {
       input.visibility ?? null
     );
 
+    // 插入后重新查询一次，保证返回值和列表查询使用同一套读取结构。
     const relation = this.findById(Number(result.lastInsertRowid));
     if (!relation) {
       throw new Error("Failed to load character relation after creation.");
@@ -60,6 +61,7 @@ export class CharacterRelationRepository {
       WHERE cr.project_id = ?
     `;
 
+    // 过滤逻辑放在 SQL 层，命令层就能同时支持全量视图和单角色视图。
     if (characterId === undefined) {
       const statement = this.database.prepare<[number], CharacterRelationListItem>(
         `${baseSql} ORDER BY cr.id ASC`
