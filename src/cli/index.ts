@@ -13,6 +13,7 @@ import { registerLoreCommands } from "./commands/lore-command.js";
 import { registerOutlineCommands } from "./commands/outline-command.js";
 import { registerProjectCommands } from "./commands/project-command.js";
 import { registerRelationCommands } from "./commands/relation-command.js";
+import { registerRunCommands } from "./commands/run-command.js";
 import { logger } from "../utils/logger.js";
 
 const program = new Command();
@@ -29,6 +30,7 @@ registerFactionCommands(program);
 registerCharacterCommands(program);
 registerRelationCommands(program);
 registerContextCommands(program);
+registerRunCommands(program);
 registerLoreCommands(program);
 registerOutlineCommands(program);
 registerChapterCommands(program);

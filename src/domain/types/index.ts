@@ -958,6 +958,29 @@ export interface GenerationRunRecord {
 }
 
 /**
+ * 生成记录列表项。
+ * 在基础记录上带出章节标题，方便历史查询时直接定位是哪一章触发的。
+ */
+export interface GenerationRunListItem extends GenerationRunRecord {
+  /** 章节标题，可为空。 */
+  chapter_title: string | null;
+}
+
+/**
+ * 查询生成记录列表时的过滤条件。
+ */
+export interface FindGenerationRunsInput {
+  /** 项目 ID。 */
+  projectId?: number;
+  /** 章节 ID。 */
+  chapterId?: number;
+  /** 运行类型。 */
+  runType?: string;
+  /** 最大返回条数。 */
+  limit?: number;
+}
+
+/**
  * 创建生成记录时的输入结构。
  */
 export interface CreateGenerationRunInput {

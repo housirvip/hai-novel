@@ -1,6 +1,8 @@
 import type Database from "better-sqlite3";
 import type {
   CreateGenerationRunInput,
+  FindGenerationRunsInput,
+  GenerationRunListItem,
   GenerationRunRecord
 } from "../../domain/types/index.js";
 
@@ -62,5 +64,55 @@ export class GenerationRunRepository {
        WHERE id = ?`
     );
     return statement.get(id);
+  }
+
+  findAll(filters?: FindGenerationRunsInput): GenerationRunListItem[] {
+    // 历史查询默认倒序返回最新记录，并支持按项目、章节、运行类型逐步过滤。
+    const conditions: string[] = [];
+    const params: Array<number | string> = [];
+
+    if (filters?.projectId !== undefined) {
+      conditions.push("gr.project_id = ?");
+      params.push(filters.projectId);
+    }
+
+    if (filters?.chapterId !== undefined) {
+      conditions.push("gr.chapter_id = ?");
+      params.push(filters.chapterId);
+    }
+
+    if (filters?.runType !== undefined) {
+      conditions.push("gr.run_type = ?");
+      params.push(filters.runType);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const limit = filters?.limit ?? 20;
+
+    const statement = this.database.prepare<
+      Array<number | string>,
+      GenerationRunListItem
+    >(
+      `SELECT
+         gr.id,
+         gr.project_id,
+         gr.chapter_id,
+         gr.run_type,
+         gr.prompt_text,
+         gr.input_context,
+         gr.output_text,
+         gr.model,
+         gr.status,
+         gr.created_at,
+         c.title AS chapter_title
+       FROM generation_runs gr
+       LEFT JOIN chapters c ON c.id = gr.chapter_id
+       ${whereClause}
+       ORDER BY gr.id DESC
+       LIMIT ${limit}`
+    );
+
+    return statement.all(...params);
   }
 }
