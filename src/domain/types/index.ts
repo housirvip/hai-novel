@@ -7,6 +7,27 @@ export interface AppConfig {
   dbPath: string;
   /** Markdown 导出目录路径，允许是相对工作区根目录的路径。 */
   exportsDir: string;
+  /** AI 相关运行配置。 */
+  ai: AIConfig;
+}
+
+/**
+ * AI provider 类型。
+ * V1 先支持本地 mock 和 OpenAI Responses API。
+ */
+export type AIProviderType = "mock" | "openai";
+
+/**
+ * AI 运行配置。
+ * 这里不直接保存密钥，只保存 provider、模型和可选的基础地址。
+ */
+export interface AIConfig {
+  /** 当前启用的 provider 类型。 */
+  provider: AIProviderType;
+  /** 默认模型名称。 */
+  model: string;
+  /** 可选的 OpenAI 兼容基础地址。 */
+  baseUrl?: string;
 }
 
 /**

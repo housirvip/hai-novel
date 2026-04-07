@@ -1,11 +1,15 @@
 import path from "node:path";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
-import type { AppConfig } from "../domain/types/index.js";
+import type { AIConfig, AppConfig } from "../domain/types/index.js";
 
 export const CONFIG_FILENAME = "novel.config.json";
 const DEFAULT_DB_PATH = path.join("data", "novel.db");
 const DEFAULT_EXPORTS_DIR = "exports";
+const DEFAULT_AI_CONFIG: AIConfig = {
+  provider: "mock",
+  model: "gpt-4.1-mini"
+};
 
 export function resolveAppRoot(cwd: string): string {
   return cwd;
@@ -18,7 +22,8 @@ export function resolveConfigPath(appRoot: string): string {
 export function resolveDefaultConfig(): AppConfig {
   return {
     dbPath: DEFAULT_DB_PATH,
-    exportsDir: DEFAULT_EXPORTS_DIR
+    exportsDir: DEFAULT_EXPORTS_DIR,
+    ai: DEFAULT_AI_CONFIG
   };
 }
 
@@ -43,7 +48,12 @@ export async function readConfig(appRoot: string): Promise<AppConfig> {
   // 即使配置文件只写了一部分字段，也要回退到默认值，避免 CLI 启动失败。
   return {
     dbPath: parsed.dbPath ?? DEFAULT_DB_PATH,
-    exportsDir: parsed.exportsDir ?? DEFAULT_EXPORTS_DIR
+    exportsDir: parsed.exportsDir ?? DEFAULT_EXPORTS_DIR,
+    ai: {
+      provider: parsed.ai?.provider ?? DEFAULT_AI_CONFIG.provider,
+      model: parsed.ai?.model ?? DEFAULT_AI_CONFIG.model,
+      baseUrl: parsed.ai?.baseUrl ?? DEFAULT_AI_CONFIG.baseUrl
+    }
   };
 }
 

@@ -1,9 +1,18 @@
 import type { AIProvider, GenerateTextInput, GenerateTextResult } from "./provider.js";
 
 export class MockProvider implements AIProvider {
-  generateText(input: GenerateTextInput): GenerateTextResult {
+  async generateText(input: GenerateTextInput): Promise<GenerateTextResult> {
+    if (input.taskType === "ai_test") {
+      return {
+        provider: "mock",
+        model: "mock-provider-v1",
+        text: `Mock provider 已收到请求：${input.prompt}`
+      };
+    }
+
     // Mock provider 先返回一版可阅读的演示正文，确保主流程无需真实模型也能跑通。
     return {
+      provider: "mock",
       model: "mock-provider-v1",
       text: [
         `【${input.taskType} / Mock 输出】`,

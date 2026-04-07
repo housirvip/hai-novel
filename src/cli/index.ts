@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { registerAICommands } from "./commands/ai-command.js";
 import { registerCharacterCommands } from "./commands/character-command.js";
 import { registerChapterCommands } from "./commands/chapter-command.js";
 import { registerContextCommands } from "./commands/context-command.js";
@@ -21,6 +22,7 @@ program
   .description("AI novel writing CLI powered by TypeScript and SQLite.")
   .version("0.1.0");
 
+registerAICommands(program);
 registerInitCommand(program);
 registerProjectCommands(program);
 registerFactionCommands(program);
