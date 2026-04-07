@@ -1,0 +1,53 @@
+import { mkdtempSync, existsSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const rootDir = path.resolve(__dirname, "..");
+
+/**
+ * 从 dist 目录动态导入已编译模块。
+ * 测试脚本运行前会先执行 `npm run build`，因此这里统一走编译产物，避免引入 TS 运行器。
+ */
+export async function importDist(relativePath) {
+  const targetPath = path.join(rootDir, "dist", relativePath);
+  return import(pathToFileURL(targetPath).href);
+}
+
+/**
+ * 创建独立临时工作区，避免测试之间互相污染数据库和导出文件。
+ */
+export function createWorkspace(prefix = "hai-novel-test-") {
+  return mkdtempSync(path.join(os.tmpdir(), prefix));
+}
+
+/**
+ * 初始化一个测试工作区，并返回运行时上下文。
+ */
+export async function initWorkspace(workspace) {
+  const { loadRuntimeContext } = await importDist("app/services/context-service.js");
+  const { initializeWorkspace } = await importDist("app/services/init-service.js");
+  const context = await loadRuntimeContext(workspace);
+  await initializeWorkspace(context);
+  return context;
+}
+
+/**
+ * 打开当前工作区数据库，供 repository 或 builder 直接测试使用。
+ */
+export async function openWorkspaceDatabase(workspace) {
+  const { loadRuntimeContext } = await importDist("app/services/context-service.js");
+  const { createDatabase } = await importDist("db/client.js");
+  const context = await loadRuntimeContext(workspace);
+  const database = createDatabase(context.dbPath);
+  return { context, database };
+}
+
+/**
+ * 判断工作区是否已生成某个导出文件。
+ */
+export function hasWorkspaceFile(workspace, ...segments) {
+  return existsSync(path.join(workspace, ...segments));
+}

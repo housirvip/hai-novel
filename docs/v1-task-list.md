@@ -5,24 +5,24 @@
 ## 0. 当前进度快照
 
 - 当前整体进度：
-  - 按“主流程可用度”估算，约为 `85% ~ 90%`
-  - 按“v1-plan 全量承诺项”估算，约为 `78% ~ 82%`
+  - 按“主流程可用度”估算，约为 `88% ~ 92%`
+  - 按“v1-plan 全量承诺项”估算，约为 `82% ~ 86%`
 - 已基本完成的阶段：
   - `Phase 1` 到 `Phase 3`
   - `Phase 4` 到 `Phase 13`
 - 部分完成的阶段：
-  - `Phase 14`：已补 README 和最小 CLI 集成测试，但测试覆盖仍不完整
+  - `Phase 14`：已补 README、CLI 集成测试、migration / repository / context / prompt / export / review 测试，但覆盖仍未完全收口
 - 主要未完成项：
-  - migration / repository / context builder / prompt builder 测试
-  - 导出逻辑与 review 流程更完整的自动化测试
   - 帮助文本和错误分类继续打磨
+  - 更细粒度的 service / 边界异常测试
+  - run 历史导出等增强能力
 
 建议把接下来的收口优先级定为：
 
-1. 补测试覆盖
-2. 补帮助文本与错误分类
-3. 做历史导出增强
-4. 增强 review 的语义检查
+1. 补帮助文本与错误分类
+2. 做历史导出增强
+3. 增强 review 的语义检查
+4. 补更多边界异常测试
 
 ## 1. 目标
 
@@ -375,13 +375,14 @@
 - [ ] 为 context builder 补测试
 - [ ] 为 prompt builder 补测试
 - [x] 为核心 CLI 命令补集成测试
-- [ ] 为导出逻辑补测试
-- [ ] 为 review 流程补测试
+- [x] 为导出逻辑补测试
+- [x] 为 review 流程补测试
 - [ ] 清理命令帮助文本
 - [x] 补充 README 最小使用说明
 
 当前说明：
 
+- 已补 migration / repository / context builder / prompt builder / export / review 相关测试
 - 已补最小 CLI 主流程集成测试
 - 已补 README 最小使用说明
 - 当前最大缺口变成更细粒度的单元测试与补充集成测试
@@ -426,10 +427,10 @@
 
 当前建议改为：
 
-1. 为 repository / context builder / prompt builder 补单元测试
-2. 为导出与 review 流程补专门测试
-3. 清理帮助文本和失败提示
-4. 继续增强 run 历史导出能力
+1. 清理帮助文本和失败提示
+2. 继续增强 run 历史导出能力
+3. 增强 review 的语义检查
+4. 补更多边界异常测试
 
 ## 6. 第一周建议
 
