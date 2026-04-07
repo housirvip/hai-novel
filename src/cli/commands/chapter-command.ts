@@ -81,6 +81,7 @@ export function registerChapterCommands(program: Command): void {
           chapter_id: result.plan.chapter_id,
           source_type: result.plan.source_type,
           status: result.plan.status,
+          generation_run_id: result.generationRunId,
           export_path: result.exportPath
         }
       ]);

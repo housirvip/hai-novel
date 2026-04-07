@@ -3,9 +3,8 @@ import { ChapterDraftRepository } from "../../db/repositories/chapter-draft-repo
 import { ChapterPlanRepository } from "../../db/repositories/chapter-plan-repository.js";
 import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
 import { GenerationRunRepository } from "../../db/repositories/generation-run-repository.js";
-import { HookChapterLinkRepository } from "../../db/repositories/hook-chapter-link-repository.js";
-import { ProjectRepository } from "../../db/repositories/project-repository.js";
 import type {
+  ChapterGenerationContext,
   DraftReviewIssue,
   DraftReviewResult,
   DraftWriteResult,
@@ -14,6 +13,10 @@ import type {
 } from "../../domain/types/index.js";
 import { logger } from "../../utils/logger.js";
 import { MockProvider } from "../../ai/mock-provider.js";
+import {
+  ChapterContextBuilder,
+  formatChapterContextAsText
+} from "./chapter-context-builder.js";
 import type { RuntimeContext } from "./context-service.js";
 import { ChapterService } from "./chapter-service.js";
 
@@ -25,29 +28,16 @@ export class DraftService {
 
     const database = createDatabase(this.context.dbPath);
     try {
-      const projectRepository = new ProjectRepository(database);
-      const chapterRepository = new ChapterRepository(database);
       const planRepository = new ChapterPlanRepository(database);
       const draftRepository = new ChapterDraftRepository(database);
       const runRepository = new GenerationRunRepository(database);
-      const hookLinkRepository = new HookChapterLinkRepository(database);
+      const contextBuilder = new ChapterContextBuilder(database);
 
-      logger.progress("draft:write 1/5 读取项目与章节");
-      const chapter = chapterRepository.findDetailById(input.chapterId);
-      if (!chapter) {
-        throw new Error(`Chapter ${input.chapterId} not found.`);
-      }
-
-      if (chapter.project_id !== input.projectId) {
-        throw new Error(
-          `Chapter ${input.chapterId} does not belong to project ${input.projectId}.`
-        );
-      }
-
-      const project = projectRepository.findById(input.projectId);
-      if (!project) {
-        throw new Error(`Project ${input.projectId} not found.`);
-      }
+      logger.progress("draft:write 1/5 构建统一上下文");
+      const chapterContext = contextBuilder.build({
+        projectId: input.projectId,
+        chapterId: input.chapterId
+      });
 
       logger.progress("draft:write 2/5 读取有效规划");
       const plan =
@@ -59,24 +49,15 @@ export class DraftService {
         throw new Error(`No plan found for chapter ${input.chapterId}. Run \`novel chapter plan\` first.`);
       }
 
-      logger.progress("draft:write 3/5 汇总钩子与额外指令");
-      const hookLinks = hookLinkRepository.findAllByChapterId(input.chapterId);
+      logger.progress("draft:write 3/5 组织 prompt 与任务要求");
       const prompt = this.buildDraftPrompt({
-        projectName: project.name,
-        chapterTitle: chapter.title,
-        chapterSummary: chapter.summary,
+        context: chapterContext,
         planText: plan.plan_text,
         authorIntent: plan.author_intent,
-        instruction: input.instruction,
-        hookLinks
+        instruction: input.instruction
       });
 
-      const contextText = this.buildDraftContext({
-        chapterTitle: chapter.title,
-        chapterSummary: chapter.summary,
-        outlineTitle: chapter.outline_title,
-        hookLinks
-      });
+      const contextText = formatChapterContextAsText(chapterContext);
 
       logger.progress("draft:write 4/5 调用 Mock Provider 生成草稿");
       const provider = new MockProvider();
@@ -100,7 +81,7 @@ export class DraftService {
         chapterId: input.chapterId,
         runType: "draft_write",
         promptText: prompt,
-        inputContext: contextText,
+        inputContext: JSON.stringify(chapterContext, null, 2),
         outputText: generated.text,
         model: generated.model,
         status: "success"
@@ -283,27 +264,14 @@ export class DraftService {
   }
 
   private buildDraftPrompt(input: {
-    projectName: string;
-    chapterTitle: string;
-    chapterSummary: string | null;
+    context: ChapterGenerationContext;
     planText: string;
     authorIntent: string | null;
     instruction?: string;
-    hookLinks: Array<{ hook_title: string; link_type: string; planned_note: string | null }>;
   }): string {
-    return [
-      `项目：${input.projectName}`,
-      `章节：${input.chapterTitle}`,
-      `章节摘要：${input.chapterSummary ?? "未设置"}`,
-      `作者意图：${input.authorIntent ?? "未提供"}`,
-      `额外指令：${input.instruction ?? "未提供"}`,
-      "",
-      "请基于以下 plan 生成章节草稿：",
-      input.planText,
-      "",
-      "本章已绑定钩子：",
-      input.hookLinks.length > 0
-        ? input.hookLinks
+    const hookSection =
+      input.context.hook_links.length > 0
+        ? input.context.hook_links
             .map(
               (hook, index) =>
                 `${index + 1}. ${hook.hook_title} / ${hook.link_type}${
@@ -311,27 +279,20 @@ export class DraftService {
                 }`
             )
             .join("\n")
-        : "无"
-    ].join("\n");
-  }
+        : "无";
 
-  private buildDraftContext(input: {
-    chapterTitle: string;
-    chapterSummary: string | null;
-    outlineTitle: string | null;
-    hookLinks: Array<{ hook_title: string; hook_type: string; hook_status: string }>;
-  }): string {
     return [
-      `章节标题：${input.chapterTitle}`,
-      `章节摘要：${input.chapterSummary ?? "未设置"}`,
-      `关联大纲：${input.outlineTitle ?? "未关联"}`,
-      `钩子概览：${
-        input.hookLinks.length > 0
-          ? input.hookLinks
-              .map((hook) => `${hook.hook_title}（${hook.hook_type}/${hook.hook_status}）`)
-              .join("，")
-          : "无"
-      }`
+      `项目：${input.context.project.name}`,
+      `章节：${input.context.chapter.title}`,
+      `章节摘要：${input.context.chapter.summary ?? "未设置"}`,
+      `作者意图：${input.authorIntent ?? "未提供"}`,
+      `额外指令：${input.instruction ?? "未提供"}`,
+      "",
+      "请基于以下 plan 生成章节草稿：",
+      input.planText,
+      "",
+      "本章已绑定钩子：",
+      hookSection
     ].join("\n");
   }
 

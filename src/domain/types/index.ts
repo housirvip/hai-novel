@@ -751,6 +751,48 @@ export interface StoryHookDetail {
 }
 
 /**
+ * 构建章节上下文时的输入结构。
+ * 用于在数据库层之上聚合出给 plan、draft、review 共用的统一上下文。
+ */
+export interface BuildChapterContextInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 章节 ID。 */
+  chapterId: number;
+}
+
+/**
+ * 章节级统一上下文。
+ * 这是 V1 的标准 prompt 输入骨架，后续无论接 Mock 还是真实模型，都优先使用这份结构。
+ */
+export interface ChapterGenerationContext {
+  /** 项目基础信息。 */
+  project: ProjectRecord;
+  /** 当前目标章节信息。 */
+  chapter: ChapterDetail;
+  /** 与当前章节关联的大纲链，从高层到低层排序。 */
+  outline_chain: OutlineRecord[];
+  /** 项目内的根级大纲节点，用于在缺少直接章纲时仍能拿到总纲/分卷信息。 */
+  root_outlines: OutlineListItem[];
+  /** 项目内已录入的世界观设定。 */
+  lore_entries: LoreEntryRecord[];
+  /** 项目内可供调用的人物。 */
+  characters: CharacterListItem[];
+  /** 项目内可供调用的势力。 */
+  factions: FactionRecord[];
+  /** 项目内的人物关系网。 */
+  character_relations: CharacterRelationListItem[];
+  /** 项目内的人物与势力关系。 */
+  character_faction_relations: CharacterFactionRelationListItem[];
+  /** 当前章节已绑定的钩子动作。 */
+  hook_links: ChapterHookLinkListItem[];
+  /** 目标回收章节是当前章节的钩子。 */
+  target_hooks: StoryHookListItem[];
+  /** 当前仍处于 active 状态的钩子。 */
+  active_hooks: StoryHookListItem[];
+}
+
+/**
  * 章节导出的来源类型。
  * V1 先统一使用字符串字面量约束，CLI 和 service 都使用同一套枚举值。
  */
@@ -763,6 +805,8 @@ export type ChapterExportSource = "plan" | "draft" | "final";
 export interface ChapterPlanGenerationResult {
   /** 新生成的章节规划记录。 */
   plan: ChapterPlanRecord;
+  /** 本次生成记录 ID。 */
+  generationRunId: number;
   /** 自动导出的 Markdown 绝对路径。 */
   exportPath: string;
 }
