@@ -180,6 +180,13 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
       chapterSnapshotId: chapterSnapshot.id,
       statusSummary: "林渡已经起疑"
     });
+    characterStateSnapshotRepository.create({
+      projectId: project.id,
+      characterId: villain.id,
+      chapterId: previousChapter.id,
+      chapterSnapshotId: chapterSnapshot.id,
+      statusSummary: "夜无声暂时潜伏"
+    });
     factionStateSnapshotRepository.create({
       projectId: project.id,
       factionId: faction.id,
@@ -215,9 +222,10 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
     assert.equal(context.target_hooks.length, 1);
     assert.equal(context.active_hooks.length, 1);
     assert.equal(context.latest_chapter_snapshot?.chapter_id, previousChapter.id);
-    assert.equal(context.latest_character_states.length, 1);
+    assert.equal(context.latest_character_states.length, 2);
     assert.equal(context.latest_faction_states.length, 1);
     assert.equal(context.latest_hook_states.length, 1);
+    assert.equal(context.latest_character_states[0].character_id, hero.id);
   } finally {
     database.close();
   }

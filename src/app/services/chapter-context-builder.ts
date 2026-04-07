@@ -16,7 +16,14 @@ import { CharacterStateSnapshotRepository } from "../../db/repositories/characte
 import type {
   BuildChapterContextInput,
   ChapterGenerationContext,
-  OutlineRecord
+  CharacterListItem,
+  CharacterStateSnapshotRecord,
+  ChapterHookLinkListItem,
+  FactionRecord,
+  FactionStateSnapshotRecord,
+  HookStateSnapshotRecord,
+  OutlineRecord,
+  StoryHookListItem
 } from "../../domain/types/index.js";
 
 export class ChapterContextBuilder {
@@ -93,6 +100,34 @@ export class ChapterContextBuilder {
         .filter((snapshot) => snapshot.chapter_id < input.chapterId),
       (snapshot) => snapshot.hook_id
     );
+    const relevanceInput = {
+      chapter,
+      outlineChain,
+      characters,
+      factions,
+      hookLinks,
+      targetHooks,
+      activeHooks,
+      latestCharacterStates,
+      latestFactionStates,
+      latestHookStates
+    };
+    const sortedCharacters = this.sortCharactersByRelevance(relevanceInput);
+    const sortedFactions = this.sortFactionsByRelevance(relevanceInput);
+    const sortedActiveHooks = this.sortHooksByRelevance(relevanceInput, activeHooks);
+    const sortedTargetHooks = this.sortHooksByRelevance(relevanceInput, targetHooks);
+    const sortedLatestCharacterStates = this.sortCharacterStatesByRelevance(
+      relevanceInput,
+      latestCharacterStates
+    );
+    const sortedLatestFactionStates = this.sortFactionStatesByRelevance(
+      relevanceInput,
+      latestFactionStates
+    );
+    const sortedLatestHookStates = this.sortHookStatesByRelevance(
+      relevanceInput,
+      latestHookStates
+    );
 
     return {
       project,
@@ -100,17 +135,17 @@ export class ChapterContextBuilder {
       outline_chain: outlineChain,
       root_outlines: rootOutlines,
       lore_entries: loreEntries,
-      characters,
-      factions,
+      characters: sortedCharacters,
+      factions: sortedFactions,
       character_relations: characterRelations,
       character_faction_relations: characterFactionRelations,
       hook_links: hookLinks,
-      target_hooks: targetHooks,
-      active_hooks: activeHooks,
+      target_hooks: sortedTargetHooks,
+      active_hooks: sortedActiveHooks,
       latest_chapter_snapshot: latestChapterSnapshot,
-      latest_character_states: latestCharacterStates,
-      latest_faction_states: latestFactionStates,
-      latest_hook_states: latestHookStates
+      latest_character_states: sortedLatestCharacterStates,
+      latest_faction_states: sortedLatestFactionStates,
+      latest_hook_states: sortedLatestHookStates
     };
   }
 
@@ -128,6 +163,342 @@ export class ChapterContextBuilder {
     }
 
     return Array.from(snapshotMap.values());
+  }
+
+  private sortCharactersByRelevance(input: {
+    chapter: ChapterGenerationContext["chapter"];
+    outlineChain: OutlineRecord[];
+    characters: CharacterListItem[];
+    factions: FactionRecord[];
+    hookLinks: ChapterHookLinkListItem[];
+    targetHooks: StoryHookListItem[];
+    activeHooks: StoryHookListItem[];
+    latestCharacterStates: CharacterStateSnapshotRecord[];
+    latestFactionStates: FactionStateSnapshotRecord[];
+    latestHookStates: HookStateSnapshotRecord[];
+  }): CharacterListItem[] {
+    const textSignals = this.buildTextSignals(input);
+    const chapterFactionIds = new Set(
+      input.factions
+        .filter((faction) => this.textSignalsContain(textSignals, faction.name))
+        .map((faction) => faction.id)
+    );
+    const latestCharacterStateIds = new Set(
+      input.latestCharacterStates.map((snapshot) => snapshot.character_id)
+    );
+
+    return this.sortByScore(input.characters, (character) => {
+      let score = 0;
+
+      // 主角和主要视角人物始终保底靠前，避免被大项目里的边缘人物挤掉。
+      if (character.role === "protagonist") {
+        score += 120;
+      } else if (character.role === "antagonist") {
+        // 反派核心往往决定本章冲突压力，通常也应该比普通配角更早进入上下文。
+        score += 50;
+      }
+
+      if (this.textSignalsContain(textSignals, character.name)) {
+        // 当前章节摘要、章纲或钩子描述里直接出现名字，说明该人物和本章显式相关。
+        score += 100;
+      }
+
+      if (character.goal && this.textSignalsContain(textSignals, character.goal)) {
+        // 角色目标如果被当前章节文本命中，往往意味着这章会直接推进他的行动线。
+        score += 40;
+      }
+
+      if (character.conflict && this.textSignalsContain(textSignals, character.conflict)) {
+        // 角色冲突被命中，说明本章可能会消耗或激化这条人物矛盾线。
+        score += 35;
+      }
+
+      if (character.faction_id !== null && chapterFactionIds.has(character.faction_id)) {
+        // 本章已明显关联到该人物所属势力时，这个人物更可能参与本章局势。
+        score += 45;
+      }
+
+      if (latestCharacterStateIds.has(character.id)) {
+        // 最近正式状态里刚出现过的人物，通常说明这条人物线仍处于连续推进中。
+        score += 20;
+      }
+
+      return score;
+    });
+  }
+
+  private sortFactionsByRelevance(input: {
+    chapter: ChapterGenerationContext["chapter"];
+    outlineChain: OutlineRecord[];
+    characters: CharacterListItem[];
+    factions: FactionRecord[];
+    hookLinks: ChapterHookLinkListItem[];
+    targetHooks: StoryHookListItem[];
+    activeHooks: StoryHookListItem[];
+    latestCharacterStates: CharacterStateSnapshotRecord[];
+    latestFactionStates: FactionStateSnapshotRecord[];
+    latestHookStates: HookStateSnapshotRecord[];
+  }): FactionRecord[] {
+    const textSignals = this.buildTextSignals(input);
+    const relevantCharacterFactionIds = new Set(
+      input.characters
+        .filter(
+          (character) =>
+            character.faction_id !== null && this.textSignalsContain(textSignals, character.name)
+        )
+        .map((character) => character.faction_id as number)
+    );
+    const latestFactionStateIds = new Set(
+      input.latestFactionStates.map((snapshot) => snapshot.faction_id)
+    );
+
+    return this.sortByScore(input.factions, (faction) => {
+      let score = 0;
+
+      if (this.textSignalsContain(textSignals, faction.name)) {
+        // 当前章节文本直接提到势力名，说明它是本章显式舞台或压力来源。
+        score += 110;
+      }
+
+      if (faction.goal && this.textSignalsContain(textSignals, faction.goal)) {
+        // 势力目标被命中，说明本章可能正在兑现或阻断这条组织行动线。
+        score += 35;
+      }
+
+      if (faction.stance && this.textSignalsContain(textSignals, faction.stance)) {
+        // 势力立场被命中时，通常意味着本章阵营对抗或价值取向很重要。
+        score += 15;
+      }
+
+      if (relevantCharacterFactionIds.has(faction.id)) {
+        // 已命中的关键人物隶属该势力时，这个势力通常也应进入核心上下文。
+        score += 60;
+      }
+
+      if (latestFactionStateIds.has(faction.id)) {
+        // 最近正式状态里出现过的势力，往往仍处于持续变化或持续施压阶段。
+        score += 20;
+      }
+
+      return score;
+    });
+  }
+
+  private sortHooksByRelevance(
+    input: {
+      chapter: ChapterGenerationContext["chapter"];
+      outlineChain: OutlineRecord[];
+      characters: CharacterListItem[];
+      factions: FactionRecord[];
+      hookLinks: ChapterHookLinkListItem[];
+      targetHooks: StoryHookListItem[];
+      activeHooks: StoryHookListItem[];
+      latestCharacterStates: CharacterStateSnapshotRecord[];
+      latestFactionStates: FactionStateSnapshotRecord[];
+      latestHookStates: HookStateSnapshotRecord[];
+    },
+    hooks: StoryHookListItem[]
+  ): StoryHookListItem[] {
+    const textSignals = this.buildTextSignals(input);
+    const directHookIds = new Set(input.hookLinks.map((link) => link.hook_id));
+    const targetHookIds = new Set(input.targetHooks.map((hook) => hook.id));
+    const latestAdvancedHookIds = new Set(
+      input.latestHookStates
+        .filter((snapshot) => snapshot.progress_status !== "pending")
+        .map((snapshot) => snapshot.hook_id)
+    );
+
+    return this.sortByScore(hooks, (hook) => {
+      let score = 0;
+
+      if (directHookIds.has(hook.id)) {
+        // 本章直接绑定的钩子一定是最强相关项，应优先保留。
+        score += 140;
+      }
+
+      if (targetHookIds.has(hook.id)) {
+        // 本章是目标回收章时，说明该钩子在本章天然具有高优先级。
+        score += 120;
+      }
+
+      if (this.textSignalsContain(textSignals, hook.title)) {
+        // 钩子标题被当前章节文本命中，说明作者已经在本章材料里显式关注它。
+        score += 80;
+      }
+
+      if (hook.summary && this.textSignalsContain(textSignals, hook.summary)) {
+        // 钩子摘要被命中，说明本章内容和这条伏笔的语义方向已经靠近。
+        score += 35;
+      }
+
+      if (latestAdvancedHookIds.has(hook.id)) {
+        // 最近正式状态中刚被推进过的钩子，更容易在下一章继续承接。
+        score += 25;
+      }
+
+      return score;
+    });
+  }
+
+  private sortCharacterStatesByRelevance(
+    input: {
+      chapter: ChapterGenerationContext["chapter"];
+      outlineChain: OutlineRecord[];
+      characters: CharacterListItem[];
+      factions: FactionRecord[];
+      hookLinks: ChapterHookLinkListItem[];
+      targetHooks: StoryHookListItem[];
+      activeHooks: StoryHookListItem[];
+      latestCharacterStates: CharacterStateSnapshotRecord[];
+      latestFactionStates: FactionStateSnapshotRecord[];
+      latestHookStates: HookStateSnapshotRecord[];
+    },
+    states: CharacterStateSnapshotRecord[]
+  ): CharacterStateSnapshotRecord[] {
+    const characterOrder = new Map(
+      this.sortCharactersByRelevance(input).map((character, index) => [character.id, index])
+    );
+
+    return this.sortByScore(states, (snapshot) => {
+      const order = characterOrder.get(snapshot.character_id);
+      // 这里给一个很高的基础分，不是因为快照“更重要”，而是为了让它稳定继承人物本体的排序结果。
+      // 这样 prompt 里会先看到高相关人物，再看到这些人物对应的最近状态，阅读上更连贯。
+      // 快照本身不单独重算语义分，而是复用“人物本体”的相关性顺序，保证状态和人物排序一致。
+      return order !== undefined ? 10_000 - order : 0;
+    });
+  }
+
+  private sortFactionStatesByRelevance(
+    input: {
+      chapter: ChapterGenerationContext["chapter"];
+      outlineChain: OutlineRecord[];
+      characters: CharacterListItem[];
+      factions: FactionRecord[];
+      hookLinks: ChapterHookLinkListItem[];
+      targetHooks: StoryHookListItem[];
+      activeHooks: StoryHookListItem[];
+      latestCharacterStates: CharacterStateSnapshotRecord[];
+      latestFactionStates: FactionStateSnapshotRecord[];
+      latestHookStates: HookStateSnapshotRecord[];
+    },
+    states: FactionStateSnapshotRecord[]
+  ): FactionStateSnapshotRecord[] {
+    const factionOrder = new Map(
+      this.sortFactionsByRelevance(input).map((faction, index) => [faction.id, index])
+    );
+
+    return this.sortByScore(states, (snapshot) => {
+      const order = factionOrder.get(snapshot.faction_id);
+      // 同样给高基础分，是为了让势力状态严格跟着势力本体走，而不是和其他状态条目混排。
+      // 势力状态快照跟随势力本体排序，避免“势力在后，状态在前”的阅读割裂。
+      return order !== undefined ? 10_000 - order : 0;
+    });
+  }
+
+  private sortHookStatesByRelevance(
+    input: {
+      chapter: ChapterGenerationContext["chapter"];
+      outlineChain: OutlineRecord[];
+      characters: CharacterListItem[];
+      factions: FactionRecord[];
+      hookLinks: ChapterHookLinkListItem[];
+      targetHooks: StoryHookListItem[];
+      activeHooks: StoryHookListItem[];
+      latestCharacterStates: CharacterStateSnapshotRecord[];
+      latestFactionStates: FactionStateSnapshotRecord[];
+      latestHookStates: HookStateSnapshotRecord[];
+    },
+    states: HookStateSnapshotRecord[]
+  ): HookStateSnapshotRecord[] {
+    const hookOrder = new Map(
+      this.sortHooksByRelevance(input, [...input.targetHooks, ...input.activeHooks]).map(
+        (hook, index) => [hook.id, index]
+      )
+    );
+
+    return this.sortByScore(states, (snapshot) => {
+      const order = hookOrder.get(snapshot.hook_id);
+      // 先继承钩子本体的相关性顺位，保证“高相关钩子”和“它的最新推进状态”在上下文里彼此靠近。
+      let score = order !== undefined ? 10_000 - order : 0;
+      if (snapshot.progress_status === "resolved") {
+        // 已解决的钩子虽然重要，但通常不如正在推进中的钩子更需要占用 prompt 空间。
+        score += 10;
+      } else if (snapshot.progress_status === "advanced") {
+        // 刚刚推进过的钩子最容易在当前章继续承接，所以略高于普通状态。
+        score += 20;
+      }
+
+      return score;
+    });
+  }
+
+  private buildTextSignals(input: {
+    chapter: ChapterGenerationContext["chapter"];
+    outlineChain: OutlineRecord[];
+    hookLinks: ChapterHookLinkListItem[];
+    targetHooks: StoryHookListItem[];
+    activeHooks: StoryHookListItem[];
+  }): string[] {
+    const signals = [
+      // 章节自身的标题/摘要/章纲标题是最直接的当前任务信号。
+      input.chapter.title,
+      input.chapter.summary ?? "",
+      input.chapter.outline_title ?? "",
+      // 大纲链路同时覆盖总纲、分卷纲、章纲，能把当前章节放回更大的叙事意图里判断相关性。
+      ...input.outlineChain.flatMap((outline) => [
+        outline.title,
+        outline.summary ?? "",
+        outline.goal ?? "",
+        outline.conflict ?? "",
+        outline.outcome ?? ""
+      ]),
+      // 章节已绑定钩子的计划说明与实际说明，通常代表作者本章明确想处理的伏笔。
+      ...input.hookLinks.flatMap((link) => [
+        link.hook_title,
+        link.planned_note ?? "",
+        link.actual_note ?? ""
+      ]),
+      // 目标钩子除了标题摘要，还要纳入埋设/回收文本，因为它们本身就是高价值剧情关键词。
+      ...input.targetHooks.flatMap((hook) => [
+        hook.title,
+        hook.summary ?? "",
+        hook.setup_text ?? "",
+        hook.payoff_text ?? ""
+      ]),
+      // 活跃钩子保留标题和摘要即可，用来感知哪些长期伏笔仍在本章语义范围内。
+      ...input.activeHooks.flatMap((hook) => [hook.title, hook.summary ?? ""])
+    ];
+
+    return signals
+      .map((signal) => signal.trim())
+      .filter((signal) => signal.length > 0);
+  }
+
+  private textSignalsContain(textSignals: string[], value: string): boolean {
+    const normalized = value.trim();
+    if (normalized.length === 0) {
+      return false;
+    }
+
+    return textSignals.some((signal) => signal.includes(normalized));
+  }
+
+  private sortByScore<T>(items: T[], getScore: (item: T) => number): T[] {
+    // 这里显式保留原始索引，保证同分对象仍按原始顺序输出，避免每次构建上下文的结果抖动。
+    return items
+      .map((item, index) => ({
+        item,
+        index,
+        score: getScore(item)
+      }))
+      .sort((left, right) => {
+        if (right.score !== left.score) {
+          return right.score - left.score;
+        }
+
+        return left.index - right.index;
+      })
+      .map((entry) => entry.item);
   }
 
   private resolveOutlineChain(

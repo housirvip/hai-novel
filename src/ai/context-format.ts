@@ -1,5 +1,15 @@
 import type { ChapterGenerationContext } from "../domain/types/index.js";
 
+// 这些上限不是业务规则，而是 prompt 控长阈值。
+// 真正决定“谁更应该被看见”的逻辑已经前移到 ChapterContextBuilder 的相关性排序里。
+const MAX_CHARACTER_CONTEXT_ITEMS = 8;
+const MAX_FACTION_CONTEXT_ITEMS = 6;
+const MAX_LORE_CONTEXT_ITEMS = 8;
+const MAX_RELATION_CONTEXT_ITEMS = 8;
+const MAX_CHARACTER_FACTION_CONTEXT_ITEMS = 8;
+const MAX_HOOK_CONTEXT_ITEMS = 8;
+const MAX_STATE_CONTEXT_ITEMS = 8;
+
 export function formatChapterContextAsText(context: ChapterGenerationContext): string {
   const outlineSection =
     context.outline_chain.length > 0
@@ -25,7 +35,7 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
   const characterSection =
     context.characters.length > 0
       ? context.characters
-          .slice(0, 8)
+          .slice(0, MAX_CHARACTER_CONTEXT_ITEMS)
           .map(
             (character, index) =>
               `${index + 1}. ${character.name}${character.role ? `（${character.role}）` : ""}${
@@ -40,7 +50,7 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
   const factionSection =
     context.factions.length > 0
       ? context.factions
-          .slice(0, 6)
+          .slice(0, MAX_FACTION_CONTEXT_ITEMS)
           .map(
             (faction, index) =>
               `${index + 1}. ${faction.name}${faction.type ? `（${faction.type}）` : ""}${
@@ -53,7 +63,7 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
   const loreSection =
     context.lore_entries.length > 0
       ? context.lore_entries
-          .slice(0, 8)
+          .slice(0, MAX_LORE_CONTEXT_ITEMS)
           .map(
             (entry, index) =>
               `${index + 1}. [${entry.type}] ${entry.title}${
@@ -66,7 +76,7 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
   const relationSection =
     context.character_relations.length > 0
       ? context.character_relations
-          .slice(0, 8)
+          .slice(0, MAX_RELATION_CONTEXT_ITEMS)
           .map(
             (relation, index) =>
               `${index + 1}. ${relation.character_name} -> ${relation.related_character_name} / ${
@@ -79,7 +89,7 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
   const characterFactionSection =
     context.character_faction_relations.length > 0
       ? context.character_faction_relations
-          .slice(0, 8)
+          .slice(0, MAX_CHARACTER_FACTION_CONTEXT_ITEMS)
           .map(
             (relation, index) =>
               `${index + 1}. ${relation.character_name} -> ${relation.faction_name} / ${
@@ -119,7 +129,7 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
   if (context.active_hooks.length > 0) {
     hookLines.push("当前仍活跃的钩子：");
     hookLines.push(
-      ...context.active_hooks.slice(0, 8).map(
+      ...context.active_hooks.slice(0, MAX_HOOK_CONTEXT_ITEMS).map(
         (hook, index) =>
           `${index + 1}. ${hook.title}（${hook.hook_type}）${
             hook.summary ? `：${hook.summary}` : ""
@@ -143,7 +153,7 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
   const latestCharacterStateSection =
     context.latest_character_states.length > 0
       ? context.latest_character_states
-          .slice(0, 8)
+          .slice(0, MAX_STATE_CONTEXT_ITEMS)
           .map(
             (snapshot, index) =>
               `${index + 1}. character_id=${snapshot.character_id} / chapter=${
@@ -156,7 +166,7 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
   const latestFactionStateSection =
     context.latest_faction_states.length > 0
       ? context.latest_faction_states
-          .slice(0, 8)
+          .slice(0, MAX_STATE_CONTEXT_ITEMS)
           .map(
             (snapshot, index) =>
               `${index + 1}. faction_id=${snapshot.faction_id} / chapter=${
@@ -169,7 +179,7 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
   const latestHookStateSection =
     context.latest_hook_states.length > 0
       ? context.latest_hook_states
-          .slice(0, 8)
+          .slice(0, MAX_STATE_CONTEXT_ITEMS)
           .map(
             (snapshot, index) =>
               `${index + 1}. hook_id=${snapshot.hook_id} / chapter=${snapshot.chapter_id} / ${
