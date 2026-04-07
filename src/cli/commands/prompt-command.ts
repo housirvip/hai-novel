@@ -1,6 +1,13 @@
+import path from "node:path";
+import { writeFile } from "node:fs/promises";
 import { Command } from "commander";
-import { loadRuntimeContext } from "../../app/services/context-service.js";
+import {
+  loadRuntimeContext,
+  relativeToAppRoot
+} from "../../app/services/context-service.js";
 import { PromptService } from "../../app/services/prompt-service.js";
+import { logger } from "../../utils/logger.js";
+import { ensureDir } from "../../utils/paths.js";
 import {
   assertInitialized,
   parseOptionalIntegerOption,
@@ -29,6 +36,79 @@ function printPromptBundle(bundle: {
   console.log(bundle.contextText);
 }
 
+function renderPromptBundle(bundle: {
+  template: string;
+  systemPrompt: string;
+  prompt: string;
+  contextText: string;
+}): string {
+  return [
+    `# ${bundle.template}`,
+    "",
+    "## systemPrompt",
+    bundle.systemPrompt,
+    "",
+    "## prompt",
+    bundle.prompt,
+    "",
+    "## contextText",
+    bundle.contextText,
+    ""
+  ].join("\n");
+}
+
+function resolvePromptSavePath(input: {
+  appRoot: string;
+  exportsDir: string;
+  template: string;
+  explicitPath?: string | boolean;
+  identitySuffix: string;
+}): string | undefined {
+  if (input.explicitPath === undefined || input.explicitPath === false) {
+    return undefined;
+  }
+
+  if (typeof input.explicitPath === "string") {
+    return path.resolve(input.appRoot, input.explicitPath);
+  }
+
+  return path.join(
+    input.exportsDir,
+    "prompts",
+    `${input.template}-${input.identitySuffix}.md`
+  );
+}
+
+async function savePromptBundleIfNeeded(input: {
+  appRoot: string;
+  exportsDir: string;
+  template: string;
+  bundle: {
+    template: string;
+    systemPrompt: string;
+    prompt: string;
+    contextText: string;
+  };
+  save?: string | boolean;
+  identitySuffix: string;
+}): Promise<void> {
+  const targetPath = resolvePromptSavePath({
+    appRoot: input.appRoot,
+    exportsDir: input.exportsDir,
+    template: input.template,
+    explicitPath: input.save,
+    identitySuffix: input.identitySuffix
+  });
+
+  if (!targetPath) {
+    return;
+  }
+
+  await ensureDir(path.dirname(targetPath));
+  await writeFile(targetPath, renderPromptBundle(input.bundle), "utf8");
+  logger.success(`prompt:save file=${relativeToAppRoot(input.appRoot, targetPath)}`);
+}
+
 export function registerPromptCommands(program: Command): void {
   const prompt = program.command("prompt").description("Prompt inspection commands.");
 
@@ -42,6 +122,7 @@ export function registerPromptCommands(program: Command): void {
       parseRequiredIntegerOption(value, "--chapter")
     )
     .option("--intent <text>", "Author intent")
+    .option("--save [path]", "Save prompt bundle to a file")
     .action(async (options) => {
       await assertInitialized(process.cwd());
       const context = await loadRuntimeContext(process.cwd());
@@ -50,6 +131,14 @@ export function registerPromptCommands(program: Command): void {
         projectId: options.project,
         chapterId: options.chapter,
         intent: options.intent
+      });
+      await savePromptBundleIfNeeded({
+        appRoot: context.appRoot,
+        exportsDir: context.exportsDir,
+        template: bundle.template,
+        bundle,
+        save: options.save,
+        identitySuffix: `project-${options.project}-chapter-${options.chapter}`
       });
       printPromptBundle(bundle);
     });
@@ -67,6 +156,7 @@ export function registerPromptCommands(program: Command): void {
       parseOptionalIntegerOption(value, "--plan")
     )
     .option("--instruction <text>", "Extra instruction")
+    .option("--save [path]", "Save prompt bundle to a file")
     .action(async (options) => {
       await assertInitialized(process.cwd());
       const context = await loadRuntimeContext(process.cwd());
@@ -76,6 +166,14 @@ export function registerPromptCommands(program: Command): void {
         chapterId: options.chapter,
         planId: options.plan,
         instruction: options.instruction
+      });
+      await savePromptBundleIfNeeded({
+        appRoot: context.appRoot,
+        exportsDir: context.exportsDir,
+        template: bundle.template,
+        bundle,
+        save: options.save,
+        identitySuffix: `project-${options.project}-chapter-${options.chapter}`
       });
       printPromptBundle(bundle);
     });
@@ -87,6 +185,7 @@ export function registerPromptCommands(program: Command): void {
       parseRequiredIntegerOption(value, "--draft")
     )
     .option("--notes <text>", "Extra notes")
+    .option("--save [path]", "Save prompt bundle to a file")
     .action(async (options) => {
       await assertInitialized(process.cwd());
       const context = await loadRuntimeContext(process.cwd());
@@ -94,6 +193,14 @@ export function registerPromptCommands(program: Command): void {
       const bundle = service.buildDraftFixPrompt({
         draftId: options.draft,
         notes: options.notes
+      });
+      await savePromptBundleIfNeeded({
+        appRoot: context.appRoot,
+        exportsDir: context.exportsDir,
+        template: bundle.template,
+        bundle,
+        save: options.save,
+        identitySuffix: `draft-${options.draft}`
       });
       printPromptBundle(bundle);
     });
