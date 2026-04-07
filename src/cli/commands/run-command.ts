@@ -96,7 +96,14 @@ export function registerRunCommands(program: Command): void {
           created_at: runRecord.created_at
         }))
       );
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel run history --project 1 --limit 10
+  novel run history --chapter 1 --type draft_write`
+    );
 
   run
     .command("show")
@@ -160,7 +167,14 @@ export function registerRunCommands(program: Command): void {
           logger.info("No output_text found.");
         }
       }
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel run show --id 8 --section meta
+  novel run show --id 8 --section input`
+    );
 
   run
     .command("export")
@@ -195,5 +209,12 @@ export function registerRunCommands(program: Command): void {
           export_path: result.exportPath
         }
       ]);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel run export --id 8 --section all --format md
+  novel run export --id 8 --section meta --format json --output exports/run-8.json`
+    );
 }

@@ -62,6 +62,16 @@ test("ai doctor 支持 config 和 network 分区诊断", () => {
   ]);
   assert.match(mockGenerateResult, /generation_checked/);
   assert.match(mockGenerateResult, /生成测试通过/);
+  const customPromptGenerateResult = runBuiltCli(workspace, [
+    "ai",
+    "doctor",
+    "--section",
+    "all",
+    "--test-generate",
+    "--test-prompt",
+    "请只回复：自定义联调"
+  ]);
+  assert.match(customPromptGenerateResult, /自定义联调/);
 
   const configPath = path.join(workspace, "novel.config.json");
   const config = JSON.parse(readFileSync(configPath, "utf8"));
@@ -142,4 +152,16 @@ test("边界异常场景会返回更明确的错误提示", () => {
   assert.equal(missingOutlineResult.status, 1);
   assert.match(missingOutlineResult.output, /\[MISSING_OUTLINE\]/);
   assert.match(missingOutlineResult.output, /outline set/);
+});
+
+test("核心命令帮助文本会展示示例", () => {
+  const workspace = createWorkspace("hai-novel-help-");
+
+  const chapterHelp = runBuiltCli(workspace, ["chapter", "plan", "--help"]);
+  assert.match(chapterHelp, /Examples:/);
+  assert.match(chapterHelp, /novel chapter plan --project 1 --chapter 1/);
+
+  const runHelp = runBuiltCli(workspace, ["run", "export", "--help"]);
+  assert.match(runHelp, /Examples:/);
+  assert.match(runHelp, /novel run export --id 8 --section all --format md/);
 });

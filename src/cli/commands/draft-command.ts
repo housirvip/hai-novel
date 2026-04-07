@@ -51,7 +51,14 @@ export function registerDraftCommands(program: Command): void {
           export_path: result.exportPath
         }
       ]);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel draft write --project 1 --chapter 1
+  novel draft write --project 1 --chapter 1 --instruction "加强压迫感和对白冲突"`
+    );
 
   draft
     .command("review")
@@ -95,7 +102,15 @@ export function registerDraftCommands(program: Command): void {
           detail: issue.detail
         }))
       );
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel draft review --draft 1 --action check
+  novel draft review --draft 1 --action fix --notes "强化结尾钩子"
+  novel draft review --draft 1 --action approve`
+    );
 
   draft
     .command("drop")
@@ -108,5 +123,11 @@ export function registerDraftCommands(program: Command): void {
       const context = await loadRuntimeContext(process.cwd());
       const service = new DraftService(context);
       service.dropDraft(options.draft);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel draft drop --draft 3`
+    );
 }

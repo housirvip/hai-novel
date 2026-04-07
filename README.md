@@ -186,6 +186,7 @@ npm run dev -- ai doctor
 npm run dev -- ai doctor --section config
 npm run dev -- ai doctor --section network
 npm run dev -- ai doctor --section all --test-generate
+npm run dev -- ai doctor --section all --test-generate --test-prompt "请只回复：联调通过"
 ```
 
 ## 生成历史导出

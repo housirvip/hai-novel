@@ -60,7 +60,14 @@ export function registerAICommands(program: Command): void {
       ]);
 
       console.log(result.text);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel ai test --prompt "请用一句话介绍这部小说"
+  novel ai test --prompt "给我一个悬念开头" --context "题材：仙侠"`
+    );
 
   ai
     .command("doctor")
@@ -73,13 +80,17 @@ export function registerAICommands(program: Command): void {
     )
     .option("--skip-network", "Skip network connectivity check")
     .option("--test-generate", "Run a minimal generation test when possible")
+    .option("--test-prompt <text>", "Custom prompt used by generation self-check")
+    .option("--test-context <text>", "Optional context used by generation self-check")
     .action(async (options) => {
       const context = await loadRuntimeContext(process.cwd());
       const service = new AIDoctorService(context);
       const result = await service.diagnose({
         skipNetwork: options.skipNetwork === true,
         section: options.section,
-        testGenerate: options.testGenerate === true
+        testGenerate: options.testGenerate === true,
+        testPrompt: options.testPrompt,
+        testContext: options.testContext
       });
 
       console.table([
@@ -104,5 +115,14 @@ export function registerAICommands(program: Command): void {
       console.log(`config: ${result.configMessage}`);
       console.log(`network: ${result.networkMessage}`);
       console.log(`generation: ${result.generationMessage}`);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel ai doctor
+  novel ai doctor --section config
+  novel ai doctor --section all --test-generate
+  novel ai doctor --section all --test-generate --test-prompt "请只回复：联调通过"`
+    );
 }

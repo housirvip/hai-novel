@@ -40,7 +40,14 @@ export function registerProjectCommands(program: Command): void {
           created_at: projectRecord.created_at
         }
       ]);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel project create --name "测试小说" --genre "仙侠"
+  novel project create --name "雨夜异闻" --premise "一桩旧案在雨夜重启" --style "冷峻克制"`
+    );
 
   project
     .command("list")
@@ -65,5 +72,11 @@ export function registerProjectCommands(program: Command): void {
           updated_at: projectRecord.updated_at
         }))
       );
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel project list`
+    );
 }

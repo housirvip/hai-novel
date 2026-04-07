@@ -47,6 +47,8 @@ export class AIDoctorService {
     skipNetwork?: boolean;
     section?: AIDoctorSection;
     testGenerate?: boolean;
+    testPrompt?: string;
+    testContext?: string;
   }): Promise<AIDoctorResult> {
     const settings = resolveAISettings(this.context);
     const baseUrl = settings.baseUrl ?? "";
@@ -56,7 +58,10 @@ export class AIDoctorService {
 
     if (settings.provider === "mock") {
       if (options?.testGenerate === true) {
-        const generationResult = await this.runGenerateTest("mock");
+        const generationResult = await this.runGenerateTest("mock", {
+          prompt: options.testPrompt,
+          contextText: options.testContext
+        });
         return {
           provider: settings.provider,
           model: settings.model,
@@ -190,7 +195,10 @@ export class AIDoctorService {
       };
     }
 
-    const generationResult = await this.runGenerateTest("openai");
+    const generationResult = await this.runGenerateTest("openai", {
+      prompt: options.testPrompt,
+      contextText: options.testContext
+    });
     return {
       ...networkResult,
       generationChecked: true,
@@ -306,7 +314,13 @@ export class AIDoctorService {
     }
   }
 
-  private async runGenerateTest(provider: "mock" | "openai"): Promise<{
+  private async runGenerateTest(
+    provider: "mock" | "openai",
+    input?: {
+      prompt?: string;
+      contextText?: string;
+    }
+  ): Promise<{
     generationOk: boolean;
     generationMessage: string;
     generationErrorType: string;
@@ -317,8 +331,8 @@ export class AIDoctorService {
       const result = await aiProvider.generateText({
         taskType: "ai_test",
         systemPrompt: "你是中文助手，请用一句话回复。",
-        prompt: "请回复：连通性测试通过。",
-        contextText: "",
+        prompt: input?.prompt ?? "请回复：连通性测试通过。",
+        contextText: input?.contextText ?? "",
         maxOutputTokens: 60
       });
 

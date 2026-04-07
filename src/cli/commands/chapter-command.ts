@@ -52,7 +52,14 @@ export function registerChapterCommands(program: Command): void {
           created_at: chapterRecord.created_at
         }
       ]);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel chapter create --project 1 --title "第001章 雨夜入宗"
+  novel chapter create --project 1 --title "第002章 山门试剑" --outline 5 --summary "主角初次公开出手"`
+    );
 
   chapter
     .command("plan")
@@ -85,7 +92,14 @@ export function registerChapterCommands(program: Command): void {
           export_path: result.exportPath
         }
       ]);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel chapter plan --project 1 --chapter 1
+  novel chapter plan --project 1 --chapter 1 --intent "突出黑玉佩异常与宗门压迫感"`
+    );
 
   chapter
     .command("show")
@@ -163,5 +177,12 @@ export function registerChapterCommands(program: Command): void {
           export_path: result.exportPath
         }
       ]);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel chapter export --chapter 1 --source plan
+  novel chapter export --chapter 1 --source final`
+    );
 }
