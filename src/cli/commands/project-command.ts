@@ -1,18 +1,8 @@
 import { Command } from "commander";
 import { loadRuntimeContext } from "../../app/services/context-service.js";
 import { ProjectService } from "../../app/services/project-service.js";
+import { assertInitialized, parseRequiredIntegerOption } from "../command-helpers.js";
 import { logger } from "../../utils/logger.js";
-import { pathExists } from "../../utils/paths.js";
-
-async function assertInitialized(cwd: string): Promise<void> {
-  const context = await loadRuntimeContext(cwd);
-  const hasConfig = await pathExists(context.configPath);
-  const hasDb = await pathExists(context.dbPath);
-
-  if (!hasConfig || !hasDb) {
-    throw new Error("Workspace is not initialized. Run `novel init` first.");
-  }
-}
 
 export function registerProjectCommands(program: Command): void {
   const project = program.command("project").description("Project management commands.");
@@ -24,13 +14,11 @@ export function registerProjectCommands(program: Command): void {
     .option("--genre <genre>", "Project genre")
     .option("--premise <premise>", "Story premise")
     .option("--style <style>", "Writing style")
-    .option("--target-word-count <count>", "Target total word count", (value) => {
-      const parsed = Number.parseInt(value, 10);
-      if (Number.isNaN(parsed)) {
-        throw new Error("`--target-word-count` must be an integer.");
-      }
-      return parsed;
-    })
+    .option(
+      "--target-word-count <count>",
+      "Target total word count",
+      (value: string) => parseRequiredIntegerOption(value, "--target-word-count")
+    )
     .action(async (options) => {
       await assertInitialized(process.cwd());
       const context = await loadRuntimeContext(process.cwd());
