@@ -1,58 +1,106 @@
 import type Database from "better-sqlite3";
+import { formatChapterContextAsText } from "../../ai/context-format.js";
+import {
+  buildStateExtractPrompt,
+  buildStateExtractSystemPrompt
+} from "../../ai/prompts/state-extract-prompt.js";
+import { createAIProvider } from "../../ai/provider-factory.js";
 import { ChapterStateSnapshotRepository } from "../../db/repositories/chapter-state-snapshot-repository.js";
 import { CharacterStateSnapshotRepository } from "../../db/repositories/character-state-snapshot-repository.js";
 import { FactionStateSnapshotRepository } from "../../db/repositories/faction-state-snapshot-repository.js";
 import { HookStateSnapshotRepository } from "../../db/repositories/hook-state-snapshot-repository.js";
 import type {
   ChapterGenerationContext,
-  ChapterStateSnapshotRecord
+  ChapterStateSnapshotRecord,
+  HookProgressStatus
 } from "../../domain/types/index.js";
 import { ChapterContextBuilder } from "./chapter-context-builder.js";
+import type { RuntimeContext } from "./context-service.js";
+
+interface ExtractedStatePayload {
+  chapter_summary: string;
+  characters: Array<{
+    character_id: number;
+    status_summary?: string;
+    location?: string;
+    goal?: string;
+    public_impression?: string;
+    internal_state?: string;
+  }>;
+  factions: Array<{
+    faction_id: number;
+    status_summary?: string;
+    power_shift?: string;
+    external_relation_summary?: string;
+  }>;
+  hooks: Array<{
+    hook_id: number;
+    progress_status: HookProgressStatus;
+    progress_note?: string;
+  }>;
+}
 
 /**
  * approve 之后的正式状态同步服务。
- * V2 当前先用可解释的规则提取章节级、角色级、势力级和钩子级快照。
+ * 当前通过 AI 输出 JSON，再由服务层统一校验并落库。
  */
 export class StateSyncService {
-  constructor(private readonly database: Database.Database) {}
+  constructor(
+    private readonly context: RuntimeContext,
+    private readonly database: Database.Database
+  ) {}
 
-  syncApprovedChapter(input: {
+  async extractApprovedChapterState(input: {
     projectId: number;
     chapterId: number;
     draftId: number;
     finalText: string;
-  }): {
-    chapterSnapshot: ChapterStateSnapshotRecord;
-    characterSnapshotCount: number;
-    factionSnapshotCount: number;
-    hookSnapshotCount: number;
-  } {
+  }): Promise<{
+    payload: ExtractedStatePayload;
+    rawOutput: string;
+    prompt: string;
+    model: string;
+  }> {
     const contextBuilder = new ChapterContextBuilder(this.database);
     const chapterContext = contextBuilder.build({
       projectId: input.projectId,
       chapterId: input.chapterId
     });
 
-    const characterNames = chapterContext.characters
-      .filter((character) => input.finalText.includes(character.name))
-      .map((character) => character.name);
-    const factionNames = chapterContext.factions
-      .filter((faction) => input.finalText.includes(faction.name))
-      .map((faction) => faction.name);
-    const hookStates = this.resolveHookStates(chapterContext, input.finalText);
+    const prompt = buildStateExtractPrompt({
+      context: chapterContext,
+      finalText: input.finalText
+    });
+    const provider = createAIProvider(this.context);
+    const result = await provider.generateText({
+      taskType: "state_snapshot_extract",
+      systemPrompt: buildStateExtractSystemPrompt(),
+      prompt,
+      contextText: formatChapterContextAsText(chapterContext),
+      temperature: 0.2,
+      maxOutputTokens: 1200
+    });
 
-    const payload = {
-      chapter_id: input.chapterId,
-      source_draft_id: input.draftId,
-      mentioned_characters: characterNames,
-      mentioned_factions: factionNames,
-      hook_progress: hookStates.map((item) => ({
-        hook_id: item.hookId,
-        title: item.title,
-        progress_status: item.progressStatus
-      }))
+    return {
+      payload: this.parseExtractionPayload(result.text, chapterContext),
+      rawOutput: result.text,
+      prompt,
+      model: result.model
     };
+  }
 
+  applyApprovedChapterState(input: {
+    projectId: number;
+    chapterId: number;
+    draftId: number;
+    payload: ExtractedStatePayload;
+    rawOutput: string;
+  }): {
+    chapterSnapshot: ChapterStateSnapshotRecord;
+    characterSnapshotCount: number;
+    factionSnapshotCount: number;
+    hookSnapshotCount: number;
+  } {
     const chapterSnapshotRepository = new ChapterStateSnapshotRepository(this.database);
     const chapterSnapshot = chapterSnapshotRepository.create({
       projectId: input.projectId,
@@ -60,155 +108,144 @@ export class StateSyncService {
       sourceDraftId: input.draftId,
       status: "applied",
       applied: true,
-      summary: this.buildChapterSummary(characterNames, factionNames, hookStates.length),
-      rawPayload: JSON.stringify(payload, null, 2)
+      summary: input.payload.chapter_summary,
+      rawPayload: JSON.stringify(input.payload, null, 2)
     });
 
     const characterSnapshotRepository = new CharacterStateSnapshotRepository(this.database);
-    const mentionedCharacters = chapterContext.characters.filter((character) =>
-      input.finalText.includes(character.name)
-    );
-    for (const character of mentionedCharacters) {
+    for (const character of input.payload.characters) {
       characterSnapshotRepository.create({
         projectId: input.projectId,
-        characterId: character.id,
+        characterId: character.character_id,
         chapterId: input.chapterId,
         chapterSnapshotId: chapterSnapshot.id,
-        statusSummary: this.findMentionSummary(input.finalText, character.name),
-        goal: character.goal ?? undefined,
-        publicImpression: `本章正式文稿明确出现人物“${character.name}”。`
+        statusSummary: this.normalizeOptionalText(character.status_summary),
+        location: this.normalizeOptionalText(character.location),
+        goal: this.normalizeOptionalText(character.goal),
+        publicImpression: this.normalizeOptionalText(character.public_impression),
+        internalState: this.normalizeOptionalText(character.internal_state)
       });
     }
 
     const factionSnapshotRepository = new FactionStateSnapshotRepository(this.database);
-    const mentionedFactions = chapterContext.factions.filter((faction) =>
-      input.finalText.includes(faction.name)
-    );
-    for (const faction of mentionedFactions) {
+    for (const faction of input.payload.factions) {
       factionSnapshotRepository.create({
         projectId: input.projectId,
-        factionId: faction.id,
+        factionId: faction.faction_id,
         chapterId: input.chapterId,
         chapterSnapshotId: chapterSnapshot.id,
-        statusSummary: this.findMentionSummary(input.finalText, faction.name),
-        externalRelationSummary: faction.stance ?? undefined
+        statusSummary: this.normalizeOptionalText(faction.status_summary),
+        powerShift: this.normalizeOptionalText(faction.power_shift),
+        externalRelationSummary: this.normalizeOptionalText(faction.external_relation_summary)
       });
     }
 
     const hookSnapshotRepository = new HookStateSnapshotRepository(this.database);
-    for (const hookState of hookStates) {
+    for (const hook of input.payload.hooks) {
       hookSnapshotRepository.create({
         projectId: input.projectId,
-        hookId: hookState.hookId,
+        hookId: hook.hook_id,
         chapterId: input.chapterId,
         chapterSnapshotId: chapterSnapshot.id,
-        progressStatus: hookState.progressStatus,
-        progressNote: hookState.progressNote
+        progressStatus: hook.progress_status,
+        progressNote: this.normalizeOptionalText(hook.progress_note)
       });
     }
 
     return {
       chapterSnapshot,
-      characterSnapshotCount: mentionedCharacters.length,
-      factionSnapshotCount: mentionedFactions.length,
-      hookSnapshotCount: hookStates.length
+      characterSnapshotCount: input.payload.characters.length,
+      factionSnapshotCount: input.payload.factions.length,
+      hookSnapshotCount: input.payload.hooks.length
     };
   }
 
-  private buildChapterSummary(
-    characterNames: string[],
-    factionNames: string[],
-    hookCount: number
-  ): string {
-    return [
-      `角色提及 ${characterNames.length} 个`,
-      `势力提及 ${factionNames.length} 个`,
-      `钩子跟踪 ${hookCount} 条`
-    ].join("，");
+  private parseExtractionPayload(
+    rawOutput: string,
+    context: ChapterGenerationContext
+  ): ExtractedStatePayload {
+    const parsed = JSON.parse(this.unwrapJson(rawOutput)) as Partial<ExtractedStatePayload>;
+    if (!parsed || typeof parsed !== "object") {
+      throw new Error("State extraction did not return a JSON object.");
+    }
+
+    const validCharacterIds = new Set(context.characters.map((character) => character.id));
+    const validFactionIds = new Set(context.factions.map((faction) => faction.id));
+    const validHookIds = new Set([
+      ...context.hook_links.map((item) => item.hook_id),
+      ...context.target_hooks.map((item) => item.id),
+      ...context.active_hooks.map((item) => item.id)
+    ]);
+
+    const characters = Array.isArray(parsed.characters)
+      ? parsed.characters.filter(
+          (item): item is ExtractedStatePayload["characters"][number] =>
+            typeof item === "object" &&
+            item !== null &&
+            typeof item.character_id === "number" &&
+            validCharacterIds.has(item.character_id)
+        )
+      : [];
+
+    const factions = Array.isArray(parsed.factions)
+      ? parsed.factions.filter(
+          (item): item is ExtractedStatePayload["factions"][number] =>
+            typeof item === "object" &&
+            item !== null &&
+            typeof item.faction_id === "number" &&
+            validFactionIds.has(item.faction_id)
+        )
+      : [];
+
+    const hooks = Array.isArray(parsed.hooks)
+      ? parsed.hooks.filter(
+          (item): item is ExtractedStatePayload["hooks"][number] =>
+            typeof item === "object" &&
+            item !== null &&
+            typeof item.hook_id === "number" &&
+            validHookIds.has(item.hook_id) &&
+            this.isHookProgressStatus(item.progress_status)
+        )
+      : [];
+
+    return {
+      chapter_summary:
+        typeof parsed.chapter_summary === "string" && parsed.chapter_summary.trim()
+          ? parsed.chapter_summary.trim()
+          : `角色提及 ${characters.length} 个，势力提及 ${factions.length} 个，钩子跟踪 ${hooks.length} 条`,
+      characters,
+      factions,
+      hooks
+    };
   }
 
-  private resolveHookStates(
-    context: ChapterGenerationContext,
-    finalText: string
-  ): Array<{
-    hookId: number;
-    title: string;
-    progressStatus: "pending" | "advanced";
-    progressNote: string;
-  }> {
-    const hooks = new Map<
-      number,
-      {
-        hookId: number;
-        title: string;
-        keywords: string[];
+  private unwrapJson(rawOutput: string): string {
+    const trimmed = rawOutput.trim();
+    if (trimmed.startsWith("```")) {
+      const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+      if (fenced) {
+        return fenced[1].trim();
       }
-    >();
-
-    for (const link of context.hook_links) {
-      hooks.set(link.hook_id, {
-        hookId: link.hook_id,
-        title: link.hook_title,
-        keywords: this.collectKeywords([link.hook_title, link.planned_note, link.actual_note])
-      });
     }
 
-    for (const hook of context.target_hooks) {
-      hooks.set(hook.id, {
-        hookId: hook.id,
-        title: hook.title,
-        keywords: this.collectKeywords([hook.title, hook.summary, hook.setup_text, hook.payoff_text])
-      });
-    }
-
-    return Array.from(hooks.values()).map((hook) => {
-      const detected = hook.keywords.some((keyword) => keyword && finalText.includes(keyword));
-      return {
-        hookId: hook.hookId,
-        title: hook.title,
-        progressStatus: detected ? "advanced" : "pending",
-        progressNote: detected
-          ? `本章正式文稿已检测到钩子“${hook.title}”的推进痕迹。`
-          : `本章已关联钩子“${hook.title}”，但正文中未检测到明显推进痕迹。`
-      };
-    });
+    return trimmed;
   }
 
-  private collectKeywords(values: Array<string | null | undefined>): string[] {
-    const keywords = new Set<string>();
-
-    for (const value of values) {
-      if (!value) {
-        continue;
-      }
-
-      const normalized = value.trim();
-      if (normalized.length >= 2) {
-        keywords.add(normalized);
-      }
-
-      for (const part of normalized.split(/[，。！？；、\s]+/)) {
-        const keyword = part.trim();
-        if (keyword.length >= 2 && keyword.length <= 12) {
-          keywords.add(keyword);
-        }
-      }
-    }
-
-    return Array.from(keywords);
+  private isHookProgressStatus(value: unknown): value is HookProgressStatus {
+    return (
+      value === "pending" ||
+      value === "started" ||
+      value === "advanced" ||
+      value === "resolved"
+    );
   }
 
-  private findMentionSummary(finalText: string, keyword: string): string {
-    const sentences = finalText
-      .split(/(?<=[。！？\n])/)
-      .map((sentence) => sentence.trim())
-      .filter(Boolean);
-
-    const matched = sentences.find((sentence) => sentence.includes(keyword));
-    if (matched) {
-      return matched.slice(0, 120);
+  private normalizeOptionalText(value: string | undefined): string | undefined {
+    if (!value) {
+      return undefined;
     }
 
-    return `本章正式文稿检测到“${keyword}”相关状态，但暂未提取到更细摘要。`;
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
   }
 }

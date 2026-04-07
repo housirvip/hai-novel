@@ -243,9 +243,16 @@ export class DraftService {
       logger.progress("draft:review 1/3 读取草稿并生成检查报告");
       const issues = this.reviewIssues(chapterContext, draft.draft_text);
       const reviewReport = this.serializeIssues(issues);
+      const stateSyncService = new StateSyncService(this.context, database);
+      const stateTemplateMetadata = getPromptTemplateMetadata("state-extract");
+      const extractedState = await stateSyncService.extractApprovedChapterState({
+        projectId: draft.project_id,
+        chapterId: draft.chapter_id,
+        draftId: draft.id,
+        finalText: draft.draft_text
+      });
 
       logger.progress("draft:review 2/3 批准草稿并同步 final");
-      const stateSyncService = new StateSyncService(database);
       const approvalResult = database.transaction(() => {
         const approvedDraft = draftRepository.updateReview(input.draftId, {
           status: "approved",
@@ -253,11 +260,12 @@ export class DraftService {
           reviewReport
         });
         chapterRepository.approveDraft(draft.chapter_id, draft.id, approvedDraft.draft_text);
-        const stateSyncResult = stateSyncService.syncApprovedChapter({
+        const stateSyncResult = stateSyncService.applyApprovedChapterState({
           projectId: draft.project_id,
           chapterId: draft.chapter_id,
           draftId: draft.id,
-          finalText: approvedDraft.draft_text
+          payload: extractedState.payload,
+          rawOutput: extractedState.rawOutput
         });
 
         return {
@@ -265,6 +273,21 @@ export class DraftService {
           stateSyncResult
         };
       })();
+
+      runRepository.create({
+        projectId: draft.project_id,
+        chapterId: draft.chapter_id,
+        runType: "state_extract",
+        templateKey: stateTemplateMetadata.key,
+        templateLabel: stateTemplateMetadata.name,
+        templateVersion: stateTemplateMetadata.version,
+        templateSummary: stateTemplateMetadata.summary,
+        promptText: extractedState.prompt,
+        inputContext: draft.draft_text,
+        outputText: extractedState.rawOutput,
+        model: extractedState.model,
+        status: "success"
+      });
 
       const run = runRepository.create({
         projectId: draft.project_id,

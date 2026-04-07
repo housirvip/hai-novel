@@ -25,6 +25,12 @@ const promptTemplateRegistry: Record<PromptTemplateKey, PromptTemplateMetadata> 
     name: "草稿修订模板",
     version: "1.0.0",
     summary: "依据 review 问题清单和上下文，对章节草稿做完整修订。"
+  },
+  "state-extract": {
+    key: "state-extract",
+    name: "状态提取模板",
+    version: "1.0.0",
+    summary: "依据正式文稿和章节上下文，提取批准后生效的章节、人物、势力与钩子状态。"
   }
 };
 

@@ -13,9 +13,13 @@ export interface AppConfig {
 
 /**
  * Prompt 模板唯一标识。
- * V1 先覆盖章节规划、草稿生成和草稿修订 3 类核心模板。
+ * 当前覆盖章节规划、草稿生成、草稿修订和状态提取模板。
  */
-export type PromptTemplateKey = "chapter-plan" | "draft-write" | "draft-fix";
+export type PromptTemplateKey =
+  | "chapter-plan"
+  | "draft-write"
+  | "draft-fix"
+  | "state-extract";
 
 /**
  * Prompt 模板元数据。
