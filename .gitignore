@@ -9,5 +9,7 @@ exports/*
 !exports/.gitkeep
 
 novel.config.json
+.env
+.env.local
 
 package-lock.json

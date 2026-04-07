@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { ensureRuntimeEnvLoaded } from "../config/runtime-env.js";
 import { registerAICommands } from "./commands/ai-command.js";
 import { registerCharacterCommands } from "./commands/character-command.js";
 import { registerChapterCommands } from "./commands/chapter-command.js";
@@ -22,6 +23,9 @@ import { presentCliError } from "../utils/error-presenter.js";
 import { logger } from "../utils/logger.js";
 
 const program = new Command();
+
+// CLI 启动时优先加载 `.env`，这样后续所有命令都能读取到统一的环境配置。
+ensureRuntimeEnvLoaded();
 
 program
   .name("novel")

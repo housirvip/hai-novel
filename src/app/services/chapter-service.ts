@@ -8,6 +8,7 @@ import {
 } from "../../ai/prompts/chapter-plan-prompt.js";
 import { getPromptTemplateMetadata } from "../../ai/prompts/template-registry.js";
 import { createAIProvider, resolveAISettings } from "../../ai/provider-factory.js";
+import { runtimeEnv } from "../../config/runtime-env.js";
 import { createDatabase } from "../../db/client.js";
 import { ChapterDraftRepository } from "../../db/repositories/chapter-draft-repository.js";
 import { ChapterPlanRepository } from "../../db/repositories/chapter-plan-repository.js";
@@ -275,8 +276,9 @@ export class ChapterService {
       systemPrompt: buildChapterPlanSystemPrompt(),
       prompt,
       contextText: formatChapterContextAsText(context),
-      temperature: 0.7,
-      maxOutputTokens: 1400
+      // 规划类任务通常既要有一定发散性，也要控制结构稳定，因此开放为环境变量调优。
+      temperature: runtimeEnv.ai.chapterPlan.temperature,
+      maxOutputTokens: runtimeEnv.ai.chapterPlan.maxOutputTokens
     });
 
     return {

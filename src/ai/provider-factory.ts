@@ -1,4 +1,5 @@
 import type { RuntimeContext } from "../app/services/context-service.js";
+import { ensureRuntimeEnvLoaded } from "../config/runtime-env.js";
 import type { AIProviderType } from "../domain/types/index.js";
 import { MockProvider } from "./mock-provider.js";
 import { OpenAIProvider } from "./openai-provider.js";
@@ -18,6 +19,9 @@ export interface ResolvedAISettings {
 }
 
 export function resolveAISettings(context: RuntimeContext): ResolvedAISettings {
+  // provider 相关环境变量既可能来自系统环境，也可能来自项目根目录的 `.env`。
+  ensureRuntimeEnvLoaded();
+
   const provider = (process.env.NOVEL_AI_PROVIDER ??
     context.config.ai.provider) as AIProviderType;
   const model = process.env.NOVEL_AI_MODEL ?? context.config.ai.model;

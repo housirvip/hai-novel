@@ -1,14 +1,16 @@
 import type { ChapterGenerationContext } from "../domain/types/index.js";
+import { runtimeEnv } from "../config/runtime-env.js";
 
 // 这些上限不是业务规则，而是 prompt 控长阈值。
 // 真正决定“谁更应该被看见”的逻辑已经前移到 ChapterContextBuilder 的相关性排序里。
-const MAX_CHARACTER_CONTEXT_ITEMS = 8;
-const MAX_FACTION_CONTEXT_ITEMS = 6;
-const MAX_LORE_CONTEXT_ITEMS = 8;
-const MAX_RELATION_CONTEXT_ITEMS = 8;
-const MAX_CHARACTER_FACTION_CONTEXT_ITEMS = 8;
-const MAX_HOOK_CONTEXT_ITEMS = 8;
-const MAX_STATE_CONTEXT_ITEMS = 8;
+// 之所以允许用环境变量覆盖，是因为不同模型窗口、不同题材项目对上下文密度的容忍度不同。
+const MAX_CHARACTER_CONTEXT_ITEMS = runtimeEnv.context.maxCharacterItems;
+const MAX_FACTION_CONTEXT_ITEMS = runtimeEnv.context.maxFactionItems;
+const MAX_LORE_CONTEXT_ITEMS = runtimeEnv.context.maxLoreItems;
+const MAX_RELATION_CONTEXT_ITEMS = runtimeEnv.context.maxRelationItems;
+const MAX_CHARACTER_FACTION_CONTEXT_ITEMS = runtimeEnv.context.maxCharacterFactionItems;
+const MAX_HOOK_CONTEXT_ITEMS = runtimeEnv.context.maxHookItems;
+const MAX_STATE_CONTEXT_ITEMS = runtimeEnv.context.maxStateItems;
 
 export function formatChapterContextAsText(context: ChapterGenerationContext): string {
   const outlineSection =

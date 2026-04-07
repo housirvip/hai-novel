@@ -172,11 +172,23 @@ novel ai doctor
 
 默认使用 `mock` provider，适合本地开发和流程验证。
 
-如需使用 OpenAI，需要在运行环境里配置：
+项目现在支持从项目根目录的 `.env` 自动加载环境变量，推荐先复制一份：
+
+```bash
+cp .env.example .env
+```
+
+如需使用 OpenAI，需要在 `.env` 或运行环境里配置：
 
 ```bash
 export OPENAI_API_KEY="your_key"
 ```
+
+除了 Provider 相关配置外，下面这些参数也可以放进 `.env` 调优：
+
+- 上下文控长阈值：`NOVEL_CONTEXT_MAX_*`
+- 相关性打分权重：`NOVEL_RELEVANCE_*`
+- AI 温度与输出预算：`NOVEL_AI_*`
 
 随后可用以下命令检查状态：
 

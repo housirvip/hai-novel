@@ -5,6 +5,7 @@ import {
   buildStateExtractSystemPrompt
 } from "../../ai/prompts/state-extract-prompt.js";
 import { createAIProvider } from "../../ai/provider-factory.js";
+import { runtimeEnv } from "../../config/runtime-env.js";
 import { ChapterStateSnapshotRepository } from "../../db/repositories/chapter-state-snapshot-repository.js";
 import { CharacterStateSnapshotRepository } from "../../db/repositories/character-state-snapshot-repository.js";
 import { FactionStateSnapshotRepository } from "../../db/repositories/faction-state-snapshot-repository.js";
@@ -77,8 +78,9 @@ export class StateSyncService {
       systemPrompt: buildStateExtractSystemPrompt(),
       prompt,
       contextText: formatChapterContextAsText(chapterContext),
-      temperature: 0.2,
-      maxOutputTokens: 1200
+      // 状态提取更偏结构化抽取，低温度能减少 JSON 漂移。
+      temperature: runtimeEnv.ai.stateExtract.temperature,
+      maxOutputTokens: runtimeEnv.ai.stateExtract.maxOutputTokens
     });
 
     return {

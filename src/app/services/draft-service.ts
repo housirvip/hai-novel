@@ -12,6 +12,7 @@ import {
 } from "../../ai/prompts/draft-write-prompt.js";
 import { getPromptTemplateMetadata } from "../../ai/prompts/template-registry.js";
 import { createAIProvider, resolveAISettings } from "../../ai/provider-factory.js";
+import { runtimeEnv } from "../../config/runtime-env.js";
 import { ChapterDraftRepository } from "../../db/repositories/chapter-draft-repository.js";
 import { ChapterPlanRepository } from "../../db/repositories/chapter-plan-repository.js";
 import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
@@ -427,8 +428,9 @@ export class DraftService {
       systemPrompt: buildDraftFixSystemPrompt(),
       prompt,
       contextText: formatChapterContextAsText(context),
-      temperature: 0.6,
-      maxOutputTokens: 1800
+      // 修稿需要更可控的改写，因此默认温度略低，并允许通过 `.env` 继续微调。
+      temperature: runtimeEnv.ai.draftFix.temperature,
+      maxOutputTokens: runtimeEnv.ai.draftFix.maxOutputTokens
     });
 
     return {
@@ -653,7 +655,7 @@ export class DraftService {
       }
     }
 
-    for (const faction of context.factions.slice(0, 2)) {
+    for (const faction of context.factions.slice(0, runtimeEnv.draft.importantFactionHintLimit)) {
       names.add(faction.name);
     }
 
