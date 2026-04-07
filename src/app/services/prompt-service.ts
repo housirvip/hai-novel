@@ -2,22 +2,13 @@ import { formatChapterContextAsText } from "../../ai/context-format.js";
 import { buildChapterPlanPrompt, buildChapterPlanSystemPrompt } from "../../ai/prompts/chapter-plan-prompt.js";
 import { buildDraftWritePrompt, buildDraftWriteSystemPrompt } from "../../ai/prompts/draft-write-prompt.js";
 import { buildDraftFixPrompt, buildDraftFixSystemPrompt } from "../../ai/prompts/draft-fix-prompt.js";
+import { getPromptTemplateMetadata } from "../../ai/prompts/template-registry.js";
 import { createDatabase } from "../../db/client.js";
 import { ChapterDraftRepository } from "../../db/repositories/chapter-draft-repository.js";
 import { ChapterPlanRepository } from "../../db/repositories/chapter-plan-repository.js";
+import type { PromptBundle } from "../../domain/types/index.js";
 import type { RuntimeContext } from "./context-service.js";
 import { ChapterContextBuilder } from "./chapter-context-builder.js";
-
-export interface PromptBundle {
-  /** 模板类型。 */
-  template: string;
-  /** 系统提示词。 */
-  systemPrompt: string;
-  /** 主提示词。 */
-  prompt: string;
-  /** 格式化后的上下文文本。 */
-  contextText: string;
-}
 
 export class PromptService {
   constructor(private readonly context: RuntimeContext) {}
@@ -36,7 +27,7 @@ export class PromptService {
       });
 
       return {
-        template: "chapter-plan",
+        template: getPromptTemplateMetadata("chapter-plan"),
         systemPrompt: buildChapterPlanSystemPrompt(),
         prompt: buildChapterPlanPrompt(chapterContext, input.intent),
         contextText: formatChapterContextAsText(chapterContext)
@@ -70,7 +61,7 @@ export class PromptService {
       }
 
       return {
-        template: "draft-write",
+        template: getPromptTemplateMetadata("draft-write"),
         systemPrompt: buildDraftWriteSystemPrompt(),
         prompt: buildDraftWritePrompt({
           context: chapterContext,
@@ -104,7 +95,7 @@ export class PromptService {
       });
 
       return {
-        template: "draft-fix",
+        template: getPromptTemplateMetadata("draft-fix"),
         systemPrompt: buildDraftFixSystemPrompt(),
         prompt: buildDraftFixPrompt(
           draft.draft_text,

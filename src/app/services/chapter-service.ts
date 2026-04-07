@@ -6,6 +6,7 @@ import {
   buildChapterPlanSystemPrompt,
   buildLocalChapterPlanText
 } from "../../ai/prompts/chapter-plan-prompt.js";
+import { getPromptTemplateMetadata } from "../../ai/prompts/template-registry.js";
 import { createAIProvider, resolveAISettings } from "../../ai/provider-factory.js";
 import { createDatabase } from "../../db/client.js";
 import { ChapterDraftRepository } from "../../db/repositories/chapter-draft-repository.js";
@@ -94,6 +95,7 @@ export class ChapterService {
         input.intent,
         chapterContext.outline_chain.length > 0
       );
+      const templateMetadata = getPromptTemplateMetadata("chapter-plan");
       const generatedPlan = await this.generatePlanText(chapterContext, input.intent);
 
       const plan = planRepository.createActive({
@@ -109,6 +111,10 @@ export class ChapterService {
         projectId: input.projectId,
         chapterId: input.chapterId,
         runType: "chapter_plan",
+        templateKey: templateMetadata.key,
+        templateLabel: templateMetadata.name,
+        templateVersion: templateMetadata.version,
+        templateSummary: templateMetadata.summary,
         inputContext: JSON.stringify(chapterContext, null, 2),
         promptText: generatedPlan.prompt,
         outputText: generatedPlan.text,

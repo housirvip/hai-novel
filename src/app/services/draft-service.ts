@@ -8,6 +8,7 @@ import {
   buildDraftWritePrompt,
   buildDraftWriteSystemPrompt
 } from "../../ai/prompts/draft-write-prompt.js";
+import { getPromptTemplateMetadata } from "../../ai/prompts/template-registry.js";
 import { createAIProvider, resolveAISettings } from "../../ai/provider-factory.js";
 import { ChapterDraftRepository } from "../../db/repositories/chapter-draft-repository.js";
 import { ChapterPlanRepository } from "../../db/repositories/chapter-plan-repository.js";
@@ -56,6 +57,7 @@ export class DraftService {
       }
 
       logger.progress("draft:write 3/5 组织 prompt 与任务要求");
+      const templateMetadata = getPromptTemplateMetadata("draft-write");
       const prompt = buildDraftWritePrompt({
         context: chapterContext,
         planText: plan.plan_text,
@@ -87,6 +89,10 @@ export class DraftService {
         projectId: input.projectId,
         chapterId: input.chapterId,
         runType: "draft_write",
+        templateKey: templateMetadata.key,
+        templateLabel: templateMetadata.name,
+        templateVersion: templateMetadata.version,
+        templateSummary: templateMetadata.summary,
         promptText: prompt,
         inputContext: JSON.stringify(chapterContext, null, 2),
         outputText: generated.text,
@@ -175,6 +181,7 @@ export class DraftService {
       if (input.action === "fix") {
         logger.progress("draft:review 1/3 执行规则检查");
         const issues = this.reviewIssues(draft.draft_text);
+        const templateMetadata = getPromptTemplateMetadata("draft-fix");
         const fixedDraft = await this.generateFixedDraft(
           chapterContext,
           draft.draft_text,
@@ -195,6 +202,10 @@ export class DraftService {
           projectId: draft.project_id,
           chapterId: draft.chapter_id,
           runType: "draft_review_fix",
+          templateKey: templateMetadata.key,
+          templateLabel: templateMetadata.name,
+          templateVersion: templateMetadata.version,
+          templateSummary: templateMetadata.summary,
           inputContext: draft.draft_text,
           promptText: fixedDraft.prompt,
           outputText: fixedDraft.text,

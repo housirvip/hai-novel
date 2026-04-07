@@ -33,6 +33,17 @@ function formatMaybeJson(value: string): string {
   }
 }
 
+function formatTemplateSnapshot(input: {
+  key: string | null;
+  version: string | null;
+}): string {
+  if (!input.key) {
+    return "";
+  }
+
+  return input.version ? `${input.key}@${input.version}` : input.key;
+}
+
 export function registerRunCommands(program: Command): void {
   const run = program.command("run").description("Generation run history commands.");
 
@@ -71,6 +82,10 @@ export function registerRunCommands(program: Command): void {
           project_id: runRecord.project_id,
           chapter: runRecord.chapter_title ?? "",
           run_type: runRecord.run_type,
+          template: formatTemplateSnapshot({
+            key: runRecord.template_key,
+            version: runRecord.template_version
+          }),
           model: runRecord.model ?? "",
           status: runRecord.status,
           output_preview: shortenRunText(runRecord.output_text, 60),
@@ -104,6 +119,10 @@ export function registerRunCommands(program: Command): void {
             project_id: runRecord.project_id,
             chapter_id: runRecord.chapter_id ?? "",
             run_type: runRecord.run_type,
+            template_key: runRecord.template_key ?? "",
+            template_name: runRecord.template_label ?? "",
+            template_version: runRecord.template_version ?? "",
+            template_summary: runRecord.template_summary ?? "",
             model: runRecord.model ?? "",
             status: runRecord.status,
             created_at: runRecord.created_at

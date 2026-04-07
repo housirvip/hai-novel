@@ -230,5 +230,18 @@ export const migrations: MigrationDefinition[] = [
       CREATE INDEX IF NOT EXISTS idx_story_hooks_project_id ON story_hooks(project_id);
       CREATE INDEX IF NOT EXISTS idx_generation_runs_project_id ON generation_runs(project_id);
     `
+  },
+  {
+    id: "002_generation_runs_template_metadata",
+    sql: `
+      -- 为生成记录补充模板快照字段，方便追溯历史内容是由哪一版提示词产出的。
+      ALTER TABLE generation_runs ADD COLUMN template_key TEXT;
+      ALTER TABLE generation_runs ADD COLUMN template_label TEXT;
+      ALTER TABLE generation_runs ADD COLUMN template_version TEXT;
+      ALTER TABLE generation_runs ADD COLUMN template_summary TEXT;
+
+      CREATE INDEX IF NOT EXISTS idx_generation_runs_template_key
+      ON generation_runs(template_key);
+    `
   }
 ];

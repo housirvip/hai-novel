@@ -13,16 +13,15 @@ import {
   parseOptionalIntegerOption,
   parseRequiredIntegerOption
 } from "../command-helpers.js";
+import type { PromptBundle } from "../../domain/types/index.js";
 
-function printPromptBundle(bundle: {
-  template: string;
-  systemPrompt: string;
-  prompt: string;
-  contextText: string;
-}): void {
+function printPromptBundle(bundle: PromptBundle): void {
   console.table([
     {
-      template: bundle.template
+      template_key: bundle.template.key,
+      template_name: bundle.template.name,
+      template_version: bundle.template.version,
+      template_summary: bundle.template.summary
     }
   ]);
 
@@ -36,14 +35,14 @@ function printPromptBundle(bundle: {
   console.log(bundle.contextText);
 }
 
-function renderPromptBundle(bundle: {
-  template: string;
-  systemPrompt: string;
-  prompt: string;
-  contextText: string;
-}): string {
+function renderPromptBundle(bundle: PromptBundle): string {
   return [
-    `# ${bundle.template}`,
+    `# ${bundle.template.name}`,
+    "",
+    "## template",
+    `- key: ${bundle.template.key}`,
+    `- version: ${bundle.template.version}`,
+    `- summary: ${bundle.template.summary}`,
     "",
     "## systemPrompt",
     bundle.systemPrompt,
@@ -83,12 +82,7 @@ async function savePromptBundleIfNeeded(input: {
   appRoot: string;
   exportsDir: string;
   template: string;
-  bundle: {
-    template: string;
-    systemPrompt: string;
-    prompt: string;
-    contextText: string;
-  };
+  bundle: PromptBundle;
   save?: string | boolean;
   identitySuffix: string;
 }): Promise<void> {
@@ -135,7 +129,7 @@ export function registerPromptCommands(program: Command): void {
       await savePromptBundleIfNeeded({
         appRoot: context.appRoot,
         exportsDir: context.exportsDir,
-        template: bundle.template,
+        template: bundle.template.key,
         bundle,
         save: options.save,
         identitySuffix: `project-${options.project}-chapter-${options.chapter}`
@@ -170,7 +164,7 @@ export function registerPromptCommands(program: Command): void {
       await savePromptBundleIfNeeded({
         appRoot: context.appRoot,
         exportsDir: context.exportsDir,
-        template: bundle.template,
+        template: bundle.template.key,
         bundle,
         save: options.save,
         identitySuffix: `project-${options.project}-chapter-${options.chapter}`
@@ -197,7 +191,7 @@ export function registerPromptCommands(program: Command): void {
       await savePromptBundleIfNeeded({
         appRoot: context.appRoot,
         exportsDir: context.exportsDir,
-        template: bundle.template,
+        template: bundle.template.key,
         bundle,
         save: options.save,
         identitySuffix: `draft-${options.draft}`

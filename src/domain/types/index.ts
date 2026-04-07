@@ -12,6 +12,43 @@ export interface AppConfig {
 }
 
 /**
+ * Prompt 模板唯一标识。
+ * V1 先覆盖章节规划、草稿生成和草稿修订 3 类核心模板。
+ */
+export type PromptTemplateKey = "chapter-plan" | "draft-write" | "draft-fix";
+
+/**
+ * Prompt 模板元数据。
+ * 这类信息既用于命令行展示，也会作为快照写入 `generation_runs`，
+ * 方便后续追溯一次生成到底用了哪一版模板。
+ */
+export interface PromptTemplateMetadata {
+  /** 模板唯一 key。 */
+  key: PromptTemplateKey;
+  /** 模板名称，偏向给人看。 */
+  name: string;
+  /** 模板版本号。 */
+  version: string;
+  /** 模板用途摘要。 */
+  summary: string;
+}
+
+/**
+ * Prompt 构建结果。
+ * 统一承载模板元数据、system prompt、主 prompt 和可选上下文文本。
+ */
+export interface PromptBundle {
+  /** 当前使用的模板元数据。 */
+  template: PromptTemplateMetadata;
+  /** 系统提示词。 */
+  systemPrompt: string;
+  /** 主提示词。 */
+  prompt: string;
+  /** 已格式化的上下文文本。 */
+  contextText: string;
+}
+
+/**
  * AI provider 类型。
  * V1 先支持本地 mock 和 OpenAI Responses API。
  */
@@ -943,6 +980,14 @@ export interface GenerationRunRecord {
   chapter_id: number | null;
   /** 运行类型，例如 chapter_plan / draft_write / draft_review_fix。 */
   run_type: string;
+  /** 使用的模板 key，可为空。 */
+  template_key: string | null;
+  /** 使用的模板名称快照，可为空。 */
+  template_label: string | null;
+  /** 使用的模板版本快照，可为空。 */
+  template_version: string | null;
+  /** 使用的模板用途摘要快照，可为空。 */
+  template_summary: string | null;
   /** 传给模型的 prompt 文本。 */
   prompt_text: string | null;
   /** 输入上下文摘要。 */
@@ -990,6 +1035,14 @@ export interface CreateGenerationRunInput {
   chapterId?: number;
   /** 运行类型。 */
   runType: string;
+  /** 模板 key，可为空。 */
+  templateKey?: string;
+  /** 模板名称快照，可为空。 */
+  templateLabel?: string;
+  /** 模板版本快照，可为空。 */
+  templateVersion?: string;
+  /** 模板用途摘要快照，可为空。 */
+  templateSummary?: string;
   /** Prompt 文本。 */
   promptText?: string;
   /** 上下文摘要。 */

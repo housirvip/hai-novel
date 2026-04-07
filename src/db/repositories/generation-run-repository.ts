@@ -19,19 +19,38 @@ export class GenerationRunRepository {
         string | null,
         string | null,
         string | null,
+        string | null,
+        string | null,
+        string | null,
+        string | null,
         string
       ],
       { id: number }
     >(
       `INSERT INTO generation_runs (
-        project_id, chapter_id, run_type, prompt_text, input_context, output_text, model, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        project_id,
+        chapter_id,
+        run_type,
+        template_key,
+        template_label,
+        template_version,
+        template_summary,
+        prompt_text,
+        input_context,
+        output_text,
+        model,
+        status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
     const result = statement.run(
       input.projectId,
       input.chapterId ?? null,
       input.runType,
+      input.templateKey ?? null,
+      input.templateLabel ?? null,
+      input.templateVersion ?? null,
+      input.templateSummary ?? null,
       input.promptText ?? null,
       input.inputContext ?? null,
       input.outputText ?? null,
@@ -54,6 +73,10 @@ export class GenerationRunRepository {
          project_id,
          chapter_id,
          run_type,
+         template_key,
+         template_label,
+         template_version,
+         template_summary,
          prompt_text,
          input_context,
          output_text,
@@ -99,6 +122,10 @@ export class GenerationRunRepository {
          gr.project_id,
          gr.chapter_id,
          gr.run_type,
+         gr.template_key,
+         gr.template_label,
+         gr.template_version,
+         gr.template_summary,
          gr.prompt_text,
          gr.input_context,
          gr.output_text,
