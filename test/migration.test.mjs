@@ -20,7 +20,8 @@ test("初始化可重复执行，且 generation_runs 包含模板快照字段", 
       "001_initial_schema",
       "002_generation_runs_template_metadata",
       "003_markdown_roundtrip_metadata",
-      "004_state_snapshot_tables"
+      "004_state_snapshot_tables",
+      "005_item_tables"
     ]);
 
     const columns = database
@@ -77,6 +78,30 @@ test("初始化可重复执行，且 generation_runs 包含模板快照字段", 
       .all()
       .map((column) => column.name);
     assert.equal(hookSnapshotColumns.includes("chapter_snapshot_id"), true);
+
+    const itemColumns = database
+      .prepare("PRAGMA table_info(items)")
+      .all()
+      .map((column) => column.name);
+    assert.equal(itemColumns.includes("name"), true);
+    assert.equal(itemColumns.includes("category"), true);
+    assert.equal(itemColumns.includes("rarity"), true);
+    assert.equal(itemColumns.includes("description"), true);
+    assert.equal(itemColumns.includes("origin"), true);
+    assert.equal(itemColumns.includes("status"), true);
+
+    const characterItemColumns = database
+      .prepare("PRAGMA table_info(character_items)")
+      .all()
+      .map((column) => column.name);
+    assert.equal(characterItemColumns.includes("character_id"), true);
+    assert.equal(characterItemColumns.includes("item_id"), true);
+    assert.equal(characterItemColumns.includes("ownership_type"), true);
+    assert.equal(characterItemColumns.includes("quantity"), true);
+    assert.equal(characterItemColumns.includes("is_equipped"), true);
+    assert.equal(characterItemColumns.includes("note"), true);
+    assert.equal(characterItemColumns.includes("start_chapter_id"), true);
+    assert.equal(characterItemColumns.includes("end_chapter_id"), true);
   } finally {
     database.close();
   }

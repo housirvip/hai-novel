@@ -10,6 +10,7 @@ import { registerDraftCommands } from "./commands/draft-command.js";
 import { registerFactionCommands } from "./commands/faction-command.js";
 import { registerHookCommands } from "./commands/hook-command.js";
 import { registerInitCommand } from "./commands/init-command.js";
+import { registerItemCommands } from "./commands/item-command.js";
 import { registerLoreCommands } from "./commands/lore-command.js";
 import { registerOutlineCommands } from "./commands/outline-command.js";
 import { registerPlanCommands } from "./commands/plan-command.js";
@@ -49,6 +50,7 @@ registerVolumeCommands(program);
 registerChapterCommands(program);
 registerDraftCommands(program);
 registerHookCommands(program);
+registerItemCommands(program);
 
 program.showHelpAfterError();
 program.showSuggestionAfterError();

@@ -7,6 +7,7 @@
 - 项目初始化
 - 总纲与分卷规划
 - 人物、势力、关系、设定、钩子管理
+- 物品与人物持有关系管理
 - 本章 `plan` 生成
 - 基于 `plan` 的 `draft` 生成
 - `review check / fix / approve`
@@ -86,6 +87,8 @@ npm run dev -- volume list --project 1
 npm run dev -- faction add --project 1 --name "青岚宗" --type "宗门"
 npm run dev -- character add --project 1 --name "林渡" --role "protagonist" --profession "外门弟子"
 npm run dev -- lore add --project 1 --type "profession_system" --title "外门晋升规则"
+npm run dev -- item add --project 1 --name "黑玉佩" --category "artifact" --rarity "rare"
+npm run dev -- character item:add --project 1 --character 1 --item 1 --type carry --start-chapter 1
 ```
 
 ### 5. 建章节并生成 plan / draft
@@ -144,6 +147,12 @@ novel relation faction:add
 novel relation faction:list
 novel lore add
 novel lore list
+novel item add
+novel item list
+novel item show
+novel character item:add
+novel character item:list
+novel character item:remove
 novel hook add
 novel hook list
 novel hook show

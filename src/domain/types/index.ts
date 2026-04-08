@@ -247,6 +247,153 @@ export interface CreateCharacterInput {
 }
 
 /**
+ * 物品实体的读取结果。
+ * 对应 `items` 表，用来表示法器、兵器、信物、文书、丹药等关键道具。
+ */
+export interface ItemRecord {
+  /** 物品自增主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 物品名称。 */
+  name: string;
+  /** 物品分类，例如 weapon、artifact、document。 */
+  category: string | null;
+  /** 稀有度或重要级别。 */
+  rarity: string | null;
+  /** 物品描述，说明外观、功能和剧情价值。 */
+  description: string | null;
+  /** 物品来源。 */
+  origin: string | null;
+  /** 当前静态状态，例如 normal、damaged、sealed。 */
+  status: string;
+  /** 创建时间。 */
+  created_at: string;
+  /** 最近更新时间。 */
+  updated_at: string;
+}
+
+/**
+ * 物品列表项。
+ * 在基础物品信息上额外带出当前活跃持有人数量，方便 CLI 快速浏览。
+ */
+export interface ItemListItem extends ItemRecord {
+  /** 当前仍处于持有中的角色数量。 */
+  active_holder_count: number;
+}
+
+/**
+ * 创建物品时的输入结构。
+ */
+export interface CreateItemInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 物品名称。 */
+  name: string;
+  /** 物品分类。 */
+  category?: string;
+  /** 稀有度。 */
+  rarity?: string;
+  /** 物品描述。 */
+  description?: string;
+  /** 物品来源。 */
+  origin?: string;
+  /** 物品状态。 */
+  status?: string;
+}
+
+/**
+ * 人物与物品关系记录。
+ * 对应 `character_items` 表，用来表示“谁当前持有哪些物品”。
+ */
+export interface CharacterItemRecord {
+  /** 关系记录主键。 */
+  id: number;
+  /** 所属项目 ID。 */
+  project_id: number;
+  /** 角色 ID。 */
+  character_id: number;
+  /** 物品 ID。 */
+  item_id: number;
+  /** 持有关系类型，例如 own、carry、borrow、use。 */
+  ownership_type: string;
+  /** 持有数量。 */
+  quantity: number;
+  /** 是否处于装备状态。 */
+  is_equipped: number;
+  /** 补充说明。 */
+  note: string | null;
+  /** 开始持有的章节 ID。 */
+  start_chapter_id: number | null;
+  /** 结束持有的章节 ID；为空表示当前仍持有。 */
+  end_chapter_id: number | null;
+  /** 创建时间。 */
+  created_at: string;
+  /** 最近更新时间。 */
+  updated_at: string;
+}
+
+/**
+ * 人物与物品关系列表项。
+ * 在基础关系信息上额外带出人物名、物品名和章节标题，方便命令行展示。
+ */
+export interface CharacterItemListItem extends CharacterItemRecord {
+  /** 角色名称。 */
+  character_name: string;
+  /** 物品名称。 */
+  item_name: string;
+  /** 开始持有章节标题。 */
+  start_chapter_title: string | null;
+  /** 结束持有章节标题。 */
+  end_chapter_title: string | null;
+}
+
+/**
+ * 创建人物持有物关系时的输入结构。
+ */
+export interface CreateCharacterItemInput {
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 角色 ID。 */
+  characterId: number;
+  /** 物品 ID。 */
+  itemId: number;
+  /** 持有关系类型。 */
+  ownershipType?: string;
+  /** 持有数量。 */
+  quantity?: number;
+  /** 是否装备中。 */
+  isEquipped?: boolean;
+  /** 补充说明。 */
+  note?: string;
+  /** 开始持有章节 ID。 */
+  startChapterId?: number;
+}
+
+/**
+ * 结束人物持有物关系时的输入结构。
+ */
+export interface RemoveCharacterItemInput {
+  /** 需要结束的持有关系记录 ID。 */
+  linkId: number;
+  /** 结束持有的章节 ID。 */
+  endChapterId?: number;
+  /** 结束时的补充说明。 */
+  note?: string;
+}
+
+/**
+ * 物品详情读取结果。
+ * 同时返回物品本体和相关持有关系，便于 `item show` 直接展示。
+ */
+export interface ItemShowResult {
+  /** 物品本体。 */
+  item: ItemRecord;
+  /** 该物品相关的人物持有关系。 */
+  holders: CharacterItemListItem[];
+}
+
+/**
  * 人物与人物关系的读取结果。
  * 对应 `character_relations` 表，用来描述师徒、敌对、恋人、盟友等关系。
  */

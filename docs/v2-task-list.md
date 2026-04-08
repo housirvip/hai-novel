@@ -8,8 +8,8 @@
   - V1 主流程已经可用，可作为 V2 的实现底座
   - `mock / openai / anthropic / custom`、`plan / draft / approve`、Markdown 导出、运行历史、prompt 查看均已具备
 - V2 新能力进度：
-  - 按“V2 主流程可用度”估算，约为 `78% ~ 86%`
-  - 按“v2-plan 全量承诺项”估算，约为 `62% ~ 72%`
+  - 按“V2 主流程可用度”估算，约为 `82% ~ 89%`
+  - 按“v2-plan 全量承诺项”估算，约为 `68% ~ 77%`
 - 已具备的可复用能力：
   - 导出系统
   - review / approve 流程
@@ -18,17 +18,16 @@
   - CLI 命令组织和错误提示体系
 - 主要未完成项：
   - `state chapter-preview / approve-sync` 等状态工具命令
-  - 人物物品系统
   - 物品上下文与物品状态快照
-  - 少量文档和阶段状态未同步到最新代码
-  - 少量补充测试与帮助文本仍可继续收口
+  - 少量帮助文本与 README 仍可继续收口
+  - `ApprovalService / StateExtractionService / StateUpdateService` 仍未彻底拆分
 
 建议把接下来的开发优先级定为：
 
-1. 先完成人物物品系统基础表和 CLI
-2. 再把物品接入 context、prompt、review 和状态快照
-3. 再补 `state chapter-preview / approve-sync`
-4. 最后继续补帮助文本、README 和回归测试
+1. 先把物品接入 context、prompt、review 和状态快照
+2. 再补 `state chapter-preview / approve-sync`
+3. 再拆分 approve 状态同步相关 service
+4. 最后继续补帮助文本、README 和回归测试边角
 
 ## 1. 目标
 
@@ -289,18 +288,18 @@
 
 ### Phase 11：人物物品系统表与基础命令
 
-阶段状态：部分完成
+阶段状态：已完成
 
-- [ ] 创建 `items`
-- [ ] 创建 `character_items`
-- [ ] 为物品相关表补索引与外键
-- [ ] 实现 `novel item add`
-- [ ] 实现 `novel item list`
-- [ ] 实现 `novel item show`
-- [ ] 实现 `novel character item:add`
-- [ ] 实现 `novel character item:list`
-- [ ] 实现 `novel character item:remove`
-- [ ] 补 repository 和 CLI 测试
+- [x] 创建 `items`
+- [x] 创建 `character_items`
+- [x] 为物品相关表补索引与外键
+- [x] 实现 `novel item add`
+- [x] 实现 `novel item list`
+- [x] 实现 `novel item show`
+- [x] 实现 `novel character item:add`
+- [x] 实现 `novel character item:list`
+- [x] 实现 `novel character item:remove`
+- [x] 补 repository 和 CLI 测试
 
 交付物：
 
@@ -334,12 +333,12 @@
 
 ### Phase 13：日志、帮助文案与 README
 
-阶段状态：未开始
+阶段状态：部分完成
 
 - [x] 为 `plan import` 增加日志
 - [x] 为 `draft import` 增加日志
 - [x] 为状态同步命令增加日志
-- [ ] 为 `item` 命令增加日志
+- [x] 为 `item` 命令增加日志
 - [x] 为 `anthropic` 使用方式补 README
 - [x] 为回写流程补 README 示例
 - [ ] 统一 help examples 与错误提示
@@ -362,7 +361,7 @@
 - [x] 为状态快照 repository 补测试
 - [x] 为 approve 状态同步补服务测试
 - [x] 为 anthropic 配置与 doctor 补测试
-- [ ] 为 item 与 character_items 补测试
+- [x] 为 item 与 character_items 补测试
 - [x] 跑通全量 `build / typecheck / test`
 - [ ] 补齐剩余文档
 
@@ -409,9 +408,9 @@
 
 当前更推荐的现实开发节奏：
 
-1. 先完成人物物品系统基础表和 CLI
-2. 再把物品接入 context、prompt、review 和状态快照
-3. 再补 `state chapter-preview / approve-sync`
+1. 先把物品接入 context、prompt、review 和状态快照
+2. 再补 `state chapter-preview / approve-sync`
+3. 再拆 approve 状态同步相关 service
 4. 最后继续补帮助文本、README 和测试收口
 
 ## 6. 第一批开发建议
@@ -433,6 +432,6 @@
 
 当前这批已经完成，下一批最值得进入编码的是：
 
-1. `Phase 11`
-2. `Phase 12`
-3. `Phase 9` 中剩余的两个状态命令
+1. `Phase 12`
+2. `Phase 9` 中剩余的两个状态命令
+3. `Phase 8` 中剩余的 service 拆分

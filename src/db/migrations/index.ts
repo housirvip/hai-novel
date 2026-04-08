@@ -346,5 +346,59 @@ export const migrations: MigrationDefinition[] = [
       CREATE INDEX IF NOT EXISTS idx_hook_state_snapshots_chapter_snapshot_id
       ON hook_state_snapshots(chapter_snapshot_id);
     `
+  },
+  {
+    id: "005_item_tables",
+    sql: `
+      -- 为 V2 物品系统补充主表与人物持有关系表。
+      CREATE TABLE IF NOT EXISTS items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        category TEXT,
+        rarity TEXT,
+        description TEXT,
+        origin TEXT,
+        status TEXT NOT NULL DEFAULT 'normal',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS character_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        character_id INTEGER NOT NULL,
+        item_id INTEGER NOT NULL,
+        ownership_type TEXT NOT NULL DEFAULT 'own',
+        quantity INTEGER NOT NULL DEFAULT 1,
+        is_equipped INTEGER NOT NULL DEFAULT 0,
+        note TEXT,
+        start_chapter_id INTEGER,
+        end_chapter_id INTEGER,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+        FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+        FOREIGN KEY (start_chapter_id) REFERENCES chapters(id) ON DELETE SET NULL,
+        FOREIGN KEY (end_chapter_id) REFERENCES chapters(id) ON DELETE SET NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_items_project_id
+      ON items(project_id);
+
+      CREATE INDEX IF NOT EXISTS idx_character_items_project_id
+      ON character_items(project_id);
+
+      CREATE INDEX IF NOT EXISTS idx_character_items_character_id
+      ON character_items(character_id);
+
+      CREATE INDEX IF NOT EXISTS idx_character_items_item_id
+      ON character_items(item_id);
+
+      CREATE INDEX IF NOT EXISTS idx_character_items_end_chapter_id
+      ON character_items(end_chapter_id);
+    `
   }
 ];

@@ -148,3 +148,114 @@ test("可以完成草稿生成、修订和转正导出", () => {
   assert.equal(existsSync(path.join(workspace, "exports", "chapter-001-draft.md")), true);
   assert.equal(existsSync(path.join(workspace, "exports", "chapter-001-final.md")), true);
 });
+
+test("可以管理物品及其人物持有关系", () => {
+  const workspace = createWorkspace();
+
+  runNovel(workspace, ["init"]);
+  runNovel(workspace, [
+    "project",
+    "create",
+    "--name",
+    "道具体系测试",
+    "--genre",
+    "仙侠"
+  ]);
+  runNovel(workspace, [
+    "chapter",
+    "create",
+    "--project",
+    "1",
+    "--title",
+    "第001章 初得异物",
+    "--summary",
+    "主角得到一件关键道具"
+  ]);
+  runNovel(workspace, [
+    "chapter",
+    "create",
+    "--project",
+    "1",
+    "--title",
+    "第002章 暂交保管",
+    "--summary",
+    "主角暂时交出道具"
+  ]);
+  runNovel(workspace, [
+    "character",
+    "add",
+    "--project",
+    "1",
+    "--name",
+    "林渡",
+    "--role",
+    "protagonist"
+  ]);
+  runNovel(workspace, [
+    "item",
+    "add",
+    "--project",
+    "1",
+    "--name",
+    "黑玉佩",
+    "--category",
+    "artifact",
+    "--rarity",
+    "rare",
+    "--status",
+    "sealed"
+  ]);
+
+  const itemListOutput = runNovel(workspace, ["item", "list", "--project", "1"]);
+  assert.match(itemListOutput, /黑玉佩/);
+
+  runNovel(workspace, [
+    "character",
+    "item:add",
+    "--project",
+    "1",
+    "--character",
+    "1",
+    "--item",
+    "1",
+    "--type",
+    "carry",
+    "--equipped",
+    "--start-chapter",
+    "1",
+    "--note",
+    "入宗时贴身携带"
+  ]);
+
+  const characterItemListOutput = runNovel(workspace, [
+    "character",
+    "item:list",
+    "--project",
+    "1",
+    "--character",
+    "1",
+    "--active-only"
+  ]);
+  assert.match(characterItemListOutput, /林渡/);
+  assert.match(characterItemListOutput, /黑玉佩/);
+  assert.match(characterItemListOutput, /yes/);
+
+  const itemShowOutput = runNovel(workspace, ["item", "show", "--item", "1"]);
+  assert.match(itemShowOutput, /黑玉佩/);
+  assert.match(itemShowOutput, /林渡/);
+
+  runNovel(workspace, [
+    "character",
+    "item:remove",
+    "--link",
+    "1",
+    "--end-chapter",
+    "2",
+    "--note",
+    "交由长老保管"
+  ]);
+
+  const allLinksOutput = runNovel(workspace, ["character", "item:list", "--project", "1"]);
+  assert.match(allLinksOutput, /第002章 暂交保管/);
+  assert.match(allLinksOutput, /交由长老保管/);
+});
