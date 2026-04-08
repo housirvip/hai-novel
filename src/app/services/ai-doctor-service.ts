@@ -1,11 +1,15 @@
-import { createAIProvider, resolveAISettings } from "../../ai/provider-factory.js";
+import {
+  createAIProvider,
+  resolveAISettings,
+  resolveCustomProviderSettings
+} from "../../ai/provider-factory.js";
 import { runtimeEnv } from "../../config/runtime-env.js";
 import { PromptService } from "./prompt-service.js";
 import type { RuntimeContext } from "./context-service.js";
 
 export type AIDoctorSection = "config" | "network" | "all";
 export type AIDoctorTask = "ai_test" | "chapter-plan" | "draft-write" | "draft-fix";
-type RemoteAIProviderType = "openai" | "anthropic";
+type RemoteAIProviderType = "openai" | "anthropic" | "custom";
 
 export interface AIDoctorResult {
   /** 当前 provider。 */
@@ -127,7 +131,28 @@ export class AIDoctorService {
       };
     }
 
-    if (!settings.hasApiKey) {
+    if (!settings.hasBaseUrl) {
+      return {
+        provider: settings.provider,
+        model: settings.model,
+        baseUrl,
+        hasApiKey: settings.hasApiKey,
+        apiKeyEnvName,
+        configOk: false,
+        configMessage:
+          "当前 provider 为 custom，但未检测到 `CUSTOM_AI_BASE_URL` 或 `novel.config.json` 中的 `ai.baseUrl`。",
+        networkChecked: false,
+        networkOk: false,
+        networkMessage: "基础地址未配置，已跳过网络检查。",
+        networkErrorType: "missing_base_url",
+        generationChecked: false,
+        generationOk: false,
+        generationMessage: "基础地址未配置，已跳过生成测试。",
+        generationErrorType: "missing_base_url"
+      };
+    }
+
+    if (settings.requiresApiKey && !settings.hasApiKey) {
       return {
         provider: settings.provider,
         model: settings.model,
@@ -247,7 +272,22 @@ export class AIDoctorService {
       };
     }
 
+    if (!settings.hasBaseUrl) {
+      return {
+        configOk: false,
+        configMessage:
+          "当前 provider 为 custom，但未检测到 `CUSTOM_AI_BASE_URL` 或 `novel.config.json` 中的 `ai.baseUrl`。"
+      };
+    }
+
     if (!settings.hasApiKey) {
+      if (!settings.requiresApiKey) {
+        return {
+          configOk: true,
+          configMessage: "custom provider 已配置基础地址，当前按无鉴权模式接入。"
+        };
+      }
+
       return {
         configOk: false,
         configMessage: `当前 provider 为 ${settings.provider}，但未检测到 \`${settings.apiKeyEnvName}\`。`
@@ -271,8 +311,8 @@ export class AIDoctorService {
     };
   }): Promise<AIDoctorResult> {
     try {
-      // OpenAI 和 Anthropic 都支持 models 接口，用它做最小探测比直接发生成请求更轻。
-      const response = await fetch(new URL("/v1/models", input.baseUrl), {
+      // 这里统一使用“模型列表或健康探测路径”做轻量检查，避免一上来就消耗完整生成请求。
+      const response = await fetch(new URL(this.resolveNetworkPath(input.provider), input.baseUrl), {
         method: "GET",
         headers: this.buildNetworkHeaders(input.provider)
       });
@@ -405,13 +445,42 @@ export class AIDoctorService {
       };
     }
 
+    if (provider === "custom") {
+      const customSettings = resolveCustomProviderSettings(this.context);
+      const headers: Record<string, string> = {};
+      if (customSettings.apiKey && customSettings.authHeader.trim().length > 0) {
+        const prefix = customSettings.authPrefix.trim();
+        headers[customSettings.authHeader] =
+          prefix.length > 0
+            ? `${prefix} ${customSettings.apiKey}`
+            : customSettings.apiKey;
+      }
+      return headers;
+    }
+
     return {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`
     };
   }
 
   private formatProviderLabel(provider: RemoteAIProviderType): string {
-    return provider === "anthropic" ? "Anthropic" : "OpenAI";
+    if (provider === "anthropic") {
+      return "Anthropic";
+    }
+
+    if (provider === "custom") {
+      return "Custom";
+    }
+
+    return "OpenAI";
+  }
+
+  private resolveNetworkPath(provider: RemoteAIProviderType): string {
+    if (provider === "custom") {
+      return resolveCustomProviderSettings(this.context).modelsPath;
+    }
+
+    return "/v1/models";
   }
 
   private buildGeneratePayload(

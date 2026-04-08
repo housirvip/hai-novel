@@ -54,9 +54,9 @@ export interface PromptBundle {
 
 /**
  * AI provider 类型。
- * 当前支持本地 mock、OpenAI Responses API 和 Anthropic Messages API。
+ * 当前支持本地 mock、OpenAI、Anthropic 以及自定义兼容接入。
  */
-export type AIProviderType = "mock" | "openai" | "anthropic";
+export type AIProviderType = "mock" | "openai" | "anthropic" | "custom";
 
 /**
  * AI 运行配置。

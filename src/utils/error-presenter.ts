@@ -98,6 +98,22 @@ export function presentCliError(error: unknown): PresentedCliError {
     };
   }
 
+  if (message.includes("Custom provider requires `CUSTOM_AI_API_KEY`")) {
+    return {
+      code: "AI_CONFIG",
+      message,
+      hint: "配置 `CUSTOM_AI_API_KEY`，或将 `CUSTOM_AI_REQUIRE_API_KEY=false` 用于无鉴权自定义网关。"
+    };
+  }
+
+  if (message.includes("Custom provider requires `CUSTOM_AI_BASE_URL`")) {
+    return {
+      code: "AI_CONFIG",
+      message,
+      hint: "配置 `CUSTOM_AI_BASE_URL`，或在 `novel.config.json` 里填写 `ai.baseUrl`。"
+    };
+  }
+
   if (message.includes("No story outline found")) {
     return {
       code: "MISSING_OUTLINE",

@@ -153,6 +153,38 @@ test("ai doctor 支持 config 和 network 分区诊断", () => {
   assert.match(anthropicNetworkResult, /missing_api_key/);
   assert.match(anthropicNetworkResult, /network: 未检测到 ANTHROPIC_API_KEY/);
   assert.match(anthropicNetworkResult, /generation: 未检测到 ANTHROPIC_API_KEY/);
+
+  config.ai.provider = "custom";
+  delete config.ai.baseUrl;
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+  const customConfigMissingBaseUrlResult = runBuiltCli(workspace, [
+    "ai",
+    "doctor",
+    "--section",
+    "config"
+  ]);
+  assert.match(customConfigMissingBaseUrlResult, /CUSTOM_AI_BASE_URL/);
+  assert.match(customConfigMissingBaseUrlResult, /provider 为 custom/);
+
+  config.ai.baseUrl = "https://custom.example.com";
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+  const customConfigResult = runBuiltCli(workspace, [
+    "ai",
+    "doctor",
+    "--section",
+    "config"
+  ]);
+  assert.match(customConfigResult, /custom provider 已配置基础地址/);
+
+  const customNetworkSkipKeyResult = runBuiltCli(workspace, [
+    "ai",
+    "doctor",
+    "--section",
+    "network"
+  ]);
+  assert.doesNotMatch(customNetworkSkipKeyResult, /missing_api_key/);
 });
 
 test("边界异常场景会返回更明确的错误提示", () => {

@@ -190,6 +190,18 @@ export OPENAI_API_KEY="your_key"
 export ANTHROPIC_API_KEY="your_key"
 ```
 
+如需接入自定义模型网关，当前默认按“OpenAI Chat Completions 兼容协议”接入，至少配置：
+
+```bash
+export CUSTOM_AI_BASE_URL="https://your-custom-ai.example.com"
+```
+
+如果你的网关需要鉴权，再额外配置：
+
+```bash
+export CUSTOM_AI_API_KEY="your_key"
+```
+
 常见切换方式示例：
 
 ```bash
@@ -200,7 +212,20 @@ NOVEL_AI_MODEL=gpt-4.1-mini
 # Anthropic
 NOVEL_AI_PROVIDER=anthropic
 NOVEL_AI_MODEL=claude-sonnet-4-20250514
+
+# Custom
+NOVEL_AI_PROVIDER=custom
+NOVEL_AI_MODEL=your-model-name
+CUSTOM_AI_BASE_URL=https://your-custom-ai.example.com
 ```
+
+自定义 provider 还支持这些可选参数：
+
+- `CUSTOM_AI_CHAT_PATH`：生成请求路径，默认 `/v1/chat/completions`
+- `CUSTOM_AI_MODELS_PATH`：`ai doctor` 网络探测路径，默认 `/v1/models`
+- `CUSTOM_AI_AUTH_HEADER`：认证头名称，默认 `Authorization`
+- `CUSTOM_AI_AUTH_PREFIX`：认证头前缀，默认 `Bearer`
+- `CUSTOM_AI_REQUIRE_API_KEY`：是否强制要求 `CUSTOM_AI_API_KEY`，默认 `false`
 
 除了 Provider 相关配置外，下面这些参数也可以放进 `.env` 调优：
 
