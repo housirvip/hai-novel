@@ -1516,6 +1516,8 @@ export interface ShowStateInput {
 export interface StateShowResult {
   /** 匹配到的章节状态快照。 */
   chapterSnapshots: ChapterStateSnapshotRecord[];
+  /** 章节 ID 到标题的映射，便于命令行把快照表展示得更可读。 */
+  chapterTitles: Record<number, string>;
   /** 匹配到的角色状态快照。 */
   characterSnapshots: CharacterStateSnapshotRecord[];
   /** 匹配到的势力状态快照。 */
@@ -1524,6 +1526,8 @@ export interface StateShowResult {
   hookSnapshots: HookStateSnapshotRecord[];
   /** 从章节快照原始 JSON 中解析出的轻量物品状态结果。 */
   itemStates: StateShowItemState[];
+  /** 以“每个物品当前最近一次正式状态”为准聚合出的轻量结果。 */
+  latestItemStates: StateShowItemState[];
 }
 
 /**
@@ -1535,6 +1539,8 @@ export interface StateShowItemState {
   chapter_snapshot_id: number;
   /** 来源章节 ID。 */
   chapter_id: number;
+  /** 来源章节标题；查不到时可为空。 */
+  chapter_title: string | null;
   /** 物品 ID。 */
   item_id: number;
   /** 物品名称；查不到时可为空。 */

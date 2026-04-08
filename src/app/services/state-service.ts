@@ -157,6 +157,7 @@ export class StateService {
     const database = createDatabase(this.context.dbPath);
     try {
       const chapterSnapshotRepository = new ChapterStateSnapshotRepository(database);
+      const chapterRepository = new ChapterRepository(database);
       const characterRepository = new CharacterRepository(database);
       const characterSnapshotRepository = new CharacterStateSnapshotRepository(database);
       const factionSnapshotRepository = new FactionStateSnapshotRepository(database);
@@ -181,22 +182,27 @@ export class StateService {
           : hookSnapshotRepository.findAllByProjectId(input.projectId);
       const items = itemRepository.findAllByProjectId(input.projectId);
       const characters = characterRepository.findAllByProjectId(input.projectId);
+      const chapterTitles = this.buildChapterTitleMap(chapterSnapshots, chapterRepository);
       const itemStates = this.extractItemStatesFromChapterSnapshots(
         chapterSnapshots,
+        chapterTitles,
         new Map(items.map((item) => [item.id, item])),
         new Map(characters.map((character) => [character.id, character.name]))
       );
+      const latestItemStates = this.extractLatestItemStates(itemStates);
 
       logger.success(
-        `state:show chapter_snapshots=${chapterSnapshots.length} character_snapshots=${characterSnapshots.length} faction_snapshots=${factionSnapshots.length} hook_snapshots=${hookSnapshots.length} item_states=${itemStates.length}`
+        `state:show chapter_snapshots=${chapterSnapshots.length} character_snapshots=${characterSnapshots.length} faction_snapshots=${factionSnapshots.length} hook_snapshots=${hookSnapshots.length} item_states=${itemStates.length} latest_item_states=${latestItemStates.length}`
       );
 
       return {
         chapterSnapshots,
+        chapterTitles,
         characterSnapshots,
         factionSnapshots,
         hookSnapshots,
-        itemStates
+        itemStates,
+        latestItemStates
       };
     } finally {
       database.close();
@@ -206,6 +212,7 @@ export class StateService {
   // 物品状态当前采用轻量方案，直接从章节快照 raw_payload 中提取，不额外建表。
   private extractItemStatesFromChapterSnapshots(
     chapterSnapshots: ChapterStateSnapshotRecord[],
+    chapterTitles: Record<number, string>,
     itemRecords: Map<
       number,
       {
@@ -237,6 +244,7 @@ export class StateService {
         result.push({
           chapter_snapshot_id: snapshot.id,
           chapter_id: snapshot.chapter_id,
+          chapter_title: chapterTitles[snapshot.chapter_id] ?? null,
           item_id: item.item_id,
           item_name: itemRecord?.name ?? null,
           item_category: itemRecord?.category ?? null,
@@ -258,6 +266,43 @@ export class StateService {
     }
 
     return result;
+  }
+
+  /**
+   * 为展示层补一份章节标题映射。
+   * 状态快照表本身只存章节 ID，而作者在 CLI 中通常更想直接看到章节标题。
+   */
+  private buildChapterTitleMap(
+    chapterSnapshots: ChapterStateSnapshotRecord[],
+    chapterRepository: ChapterRepository
+  ): Record<number, string> {
+    const titles: Record<number, string> = {};
+    const chapterIds = Array.from(new Set(chapterSnapshots.map((snapshot) => snapshot.chapter_id)));
+
+    for (const chapterId of chapterIds) {
+      const chapter = chapterRepository.findById(chapterId);
+      if (chapter) {
+        titles[chapterId] = chapter.title;
+      }
+    }
+
+    return titles;
+  }
+
+  /**
+   * 章节快照默认按最新在前返回，因此这里取“每个 item_id 第一次出现”的记录，
+   * 就能得到这个物品当前最新一次正式同步出来的状态。
+   */
+  private extractLatestItemStates(itemStates: StateShowItemState[]): StateShowItemState[] {
+    const latestByItemId = new Map<number, StateShowItemState>();
+
+    for (const itemState of itemStates) {
+      if (!latestByItemId.has(itemState.item_id)) {
+        latestByItemId.set(itemState.item_id, itemState);
+      }
+    }
+
+    return Array.from(latestByItemId.values()).sort((left, right) => left.item_id - right.item_id);
   }
 
   // 状态查看不应因为历史脏数据而整体失败，因此这里对 raw_payload 使用宽松解析。

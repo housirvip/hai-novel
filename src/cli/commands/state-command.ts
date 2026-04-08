@@ -203,6 +203,7 @@ Examples:
           id: snapshot.id,
           project_id: snapshot.project_id,
           chapter_id: snapshot.chapter_id,
+          chapter_title: result.chapterTitles[snapshot.chapter_id] ?? "",
           source_draft_id: snapshot.source_draft_id ?? "",
           status: snapshot.status,
           summary: snapshot.summary ?? "",
@@ -211,6 +212,25 @@ Examples:
           created_at: snapshot.created_at
         }))
       );
+
+      if (options.chapter === undefined && result.latestItemStates.length > 0) {
+        printStateSection("latest_item_states");
+        console.table(
+          result.latestItemStates.map((itemState) => ({
+            chapter_id: itemState.chapter_id,
+            chapter_title: itemState.chapter_title ?? "",
+            chapter_snapshot_id: itemState.chapter_snapshot_id,
+            item_id: itemState.item_id,
+            item_name: itemState.item_name ?? "",
+            item_category: itemState.item_category ?? "",
+            item_rarity: itemState.item_rarity ?? "",
+            item_static_status: itemState.item_static_status ?? "",
+            owner_character_name: itemState.owner_character_name ?? "",
+            status_summary: itemState.status_summary ?? "",
+            location: itemState.location ?? ""
+          }))
+        );
+      }
 
       if (options.chapter !== undefined) {
         if (result.characterSnapshots.length > 0) {
@@ -254,6 +274,8 @@ Examples:
           printStateSection("item_states");
           console.table(
             result.itemStates.map((itemState) => ({
+              chapter_id: itemState.chapter_id,
+              chapter_title: itemState.chapter_title ?? "",
               chapter_snapshot_id: itemState.chapter_snapshot_id,
               item_id: itemState.item_id,
               item_name: itemState.item_name ?? "",
