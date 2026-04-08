@@ -1,7 +1,7 @@
 import {
   createAIProvider,
   resolveAISettings,
-  resolveCustomProviderSettings
+  resolveProviderRuntime
 } from "../../ai/provider-factory.js";
 import { runtimeEnv } from "../../config/runtime-env.js";
 import { PromptService } from "./prompt-service.js";
@@ -73,43 +73,7 @@ export class AIDoctorService {
     const configDiagnosis = this.diagnoseConfig();
 
     if (settings.provider === "mock") {
-      if (options?.testGenerate === true) {
-        const generationResult = await this.runGenerateTest("mock", {
-          task: options.testTask,
-          projectId: options.projectId,
-          chapterId: options.chapterId,
-          draftId: options.draftId,
-          planId: options.planId,
-          intent: options.intent,
-          instruction: options.instruction,
-          notes: options.notes,
-          prompt: options.testPrompt,
-          contextText: options.testContext
-        });
-        return {
-          provider: settings.provider,
-          model: settings.model,
-          baseUrl,
-          hasApiKey: settings.hasApiKey,
-          apiKeyEnvName,
-          configOk: configDiagnosis.configOk,
-          configMessage: configDiagnosis.configMessage,
-          networkChecked: false,
-          networkOk: true,
-          networkMessage:
-            section === "network" || section === "all"
-              ? "mock provider 无需网络检查。"
-              : "当前只执行配置检查，未进行网络探测。",
-          networkErrorType: "skipped",
-          generationChecked: true,
-          generationOk: generationResult.generationOk,
-          generationMessage: generationResult.generationMessage,
-          generationErrorType: generationResult.generationErrorType,
-          generationRequestId: generationResult.generationRequestId
-        };
-      }
-
-      return {
+      const mockResult = this.buildBaseResult({
         provider: settings.provider,
         model: settings.model,
         baseUrl,
@@ -128,11 +92,37 @@ export class AIDoctorService {
         generationOk: true,
         generationMessage: "未执行生成测试。",
         generationErrorType: "skipped"
+      });
+
+      if (options?.testGenerate !== true) {
+        return mockResult;
+      }
+
+      const generationResult = await this.runGenerateTest("mock", {
+        task: options.testTask,
+        projectId: options.projectId,
+        chapterId: options.chapterId,
+        draftId: options.draftId,
+        planId: options.planId,
+        intent: options.intent,
+        instruction: options.instruction,
+        notes: options.notes,
+        prompt: options.testPrompt,
+        contextText: options.testContext
+      });
+
+      return {
+        ...mockResult,
+        generationChecked: true,
+        generationOk: generationResult.generationOk,
+        generationMessage: generationResult.generationMessage,
+        generationErrorType: generationResult.generationErrorType,
+        generationRequestId: generationResult.generationRequestId
       };
     }
 
     if (!settings.hasBaseUrl) {
-      return {
+      return this.buildBaseResult({
         provider: settings.provider,
         model: settings.model,
         baseUrl,
@@ -149,11 +139,11 @@ export class AIDoctorService {
         generationOk: false,
         generationMessage: "基础地址未配置，已跳过生成测试。",
         generationErrorType: "missing_base_url"
-      };
+      });
     }
 
     if (settings.requiresApiKey && !settings.hasApiKey) {
-      return {
+      return this.buildBaseResult({
         provider: settings.provider,
         model: settings.model,
         baseUrl,
@@ -169,11 +159,11 @@ export class AIDoctorService {
         generationOk: false,
         generationMessage: `未检测到 ${apiKeyEnvName}，已跳过生成测试。`,
         generationErrorType: "missing_api_key"
-      };
+      });
     }
 
     if (section === "config") {
-      return {
+      return this.buildBaseResult({
         provider: settings.provider,
         model: settings.model,
         baseUrl,
@@ -189,11 +179,11 @@ export class AIDoctorService {
         generationOk: true,
         generationMessage: "当前只执行配置检查，未进行生成测试。",
         generationErrorType: "skipped"
-      };
+      });
     }
 
     if (options?.skipNetwork === true) {
-      return {
+      return this.buildBaseResult({
         provider: settings.provider,
         model: settings.model,
         baseUrl,
@@ -209,7 +199,7 @@ export class AIDoctorService {
         generationOk: true,
         generationMessage: "当前未执行生成测试。",
         generationErrorType: "skipped"
-      };
+      });
     }
 
     const networkResult = await this.checkProviderNetwork({
@@ -311,15 +301,15 @@ export class AIDoctorService {
     };
   }): Promise<AIDoctorResult> {
     try {
+      const runtime = resolveProviderRuntime(this.context, input.provider);
       // 这里统一使用“模型列表或健康探测路径”做轻量检查，避免一上来就消耗完整生成请求。
-      const response = await fetch(new URL(this.resolveNetworkPath(input.provider), input.baseUrl), {
+      const response = await fetch(new URL(runtime.networkPath, input.baseUrl), {
         method: "GET",
-        headers: this.buildNetworkHeaders(input.provider)
+        headers: runtime.networkHeaders
       });
 
       if (response.ok) {
-        const providerLabel = this.formatProviderLabel(input.provider);
-        return {
+        return this.buildBaseResult({
           provider: input.provider,
           model: input.model,
           baseUrl: input.baseUrl,
@@ -329,20 +319,19 @@ export class AIDoctorService {
           configMessage: input.configDiagnosis.configMessage,
           networkChecked: true,
           networkOk: true,
-          networkMessage: `${providerLabel} 网络检查通过。`,
+          networkMessage: `${runtime.label} 网络检查通过。`,
           networkErrorType: "none",
           httpStatus: response.status,
           generationChecked: false,
           generationOk: true,
           generationMessage: "未执行生成测试。",
           generationErrorType: "skipped"
-        };
+        });
       }
 
       const responseText = await response.text();
       const networkErrorType = this.classifyHttpStatus(response.status);
-      const providerLabel = this.formatProviderLabel(input.provider);
-      return {
+      return this.buildBaseResult({
         provider: input.provider,
         model: input.model,
         baseUrl: input.baseUrl,
@@ -352,7 +341,7 @@ export class AIDoctorService {
         configMessage: input.configDiagnosis.configMessage,
         networkChecked: true,
         networkOk: false,
-        networkMessage: `${providerLabel} 网络检查失败：${responseText.slice(
+        networkMessage: `${runtime.label} 网络检查失败：${responseText.slice(
           0,
           runtimeEnv.display.networkErrorPreviewLength
         )}`,
@@ -362,11 +351,11 @@ export class AIDoctorService {
         generationOk: false,
         generationMessage: "网络检查失败，未执行生成测试。",
         generationErrorType: "skipped_due_to_network"
-      };
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const providerLabel = this.formatProviderLabel(input.provider);
-      return {
+      const runtime = resolveProviderRuntime(this.context, input.provider);
+      return this.buildBaseResult({
         provider: input.provider,
         model: input.model,
         baseUrl: input.baseUrl,
@@ -376,13 +365,13 @@ export class AIDoctorService {
         configMessage: input.configDiagnosis.configMessage,
         networkChecked: true,
         networkOk: false,
-        networkMessage: `${providerLabel} 网络检查异常：${message}`,
+        networkMessage: `${runtime.label} 网络检查异常：${message}`,
         networkErrorType: "network_error",
         generationChecked: false,
         generationOk: false,
         generationMessage: "网络检查异常，未执行生成测试。",
         generationErrorType: "skipped_due_to_network"
-      };
+      });
     }
   }
 
@@ -437,50 +426,8 @@ export class AIDoctorService {
     }
   }
 
-  private buildNetworkHeaders(provider: RemoteAIProviderType): Record<string, string> {
-    if (provider === "anthropic") {
-      return {
-        "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
-        "anthropic-version": "2023-06-01"
-      };
-    }
-
-    if (provider === "custom") {
-      const customSettings = resolveCustomProviderSettings(this.context);
-      const headers: Record<string, string> = {};
-      if (customSettings.apiKey && customSettings.authHeader.trim().length > 0) {
-        const prefix = customSettings.authPrefix.trim();
-        headers[customSettings.authHeader] =
-          prefix.length > 0
-            ? `${prefix} ${customSettings.apiKey}`
-            : customSettings.apiKey;
-      }
-      return headers;
-    }
-
-    return {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`
-    };
-  }
-
-  private formatProviderLabel(provider: RemoteAIProviderType): string {
-    if (provider === "anthropic") {
-      return "Anthropic";
-    }
-
-    if (provider === "custom") {
-      return "Custom";
-    }
-
-    return "OpenAI";
-  }
-
-  private resolveNetworkPath(provider: RemoteAIProviderType): string {
-    if (provider === "custom") {
-      return resolveCustomProviderSettings(this.context).modelsPath;
-    }
-
-    return "/v1/models";
+  private buildBaseResult(input: AIDoctorResult): AIDoctorResult {
+    return input;
   }
 
   private buildGeneratePayload(

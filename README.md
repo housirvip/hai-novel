@@ -178,6 +178,14 @@ novel ai doctor
 cp .env.example .env
 ```
 
+然后手动指定当前使用的 provider：
+
+```bash
+# 可选：mock | openai | anthropic | custom
+NOVEL_AI_PROVIDER=openai
+NOVEL_AI_MODEL=gpt-4.1-mini
+```
+
 如需使用 OpenAI，需要在 `.env` 或运行环境里配置：
 
 ```bash
