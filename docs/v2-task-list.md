@@ -6,10 +6,10 @@
 
 - 当前基础状态：
   - V1 主流程已经可用，可作为 V2 的实现底座
-  - `mock / openai`、`plan / draft / approve`、Markdown 导出、运行历史、prompt 查看均已具备
+  - `mock / openai / anthropic / custom`、`plan / draft / approve`、Markdown 导出、运行历史、prompt 查看均已具备
 - V2 新能力进度：
-  - 按“V2 主流程可用度”估算，约为 `0% ~ 5%`
-  - 按“v2-plan 全量承诺项”估算，约为 `0% ~ 3%`
+  - 按“V2 主流程可用度”估算，约为 `78% ~ 86%`
+  - 按“v2-plan 全量承诺项”估算，约为 `62% ~ 72%`
 - 已具备的可复用能力：
   - 导出系统
   - review / approve 流程
@@ -17,17 +17,18 @@
   - context builder
   - CLI 命令组织和错误提示体系
 - 主要未完成项：
-  - Markdown 手工编辑后的回写闭环
-  - `approve` 后状态快照体系
-  - `anthropic` provider
+  - `state chapter-preview / approve-sync` 等状态工具命令
   - 人物物品系统
+  - 物品上下文与物品状态快照
+  - 少量文档和阶段状态未同步到最新代码
+  - 少量补充测试与帮助文本仍可继续收口
 
 建议把接下来的开发优先级定为：
 
-1. 先打通 `plan / draft` Markdown 回写闭环
-2. 再把状态更新延后到 `approve`，补状态快照链路
-3. 再接入 `anthropic`
-4. 最后补人物物品系统和上下文集成
+1. 先完成人物物品系统基础表和 CLI
+2. 再把物品接入 context、prompt、review 和状态快照
+3. 再补 `state chapter-preview / approve-sync`
+4. 最后继续补帮助文本、README 和回归测试
 
 ## 1. 目标
 
@@ -51,14 +52,14 @@
 
 ### Phase 1：Markdown 回写协议设计
 
-阶段状态：未开始
+阶段状态：已完成
 
-- [ ] 明确 `plan` / `draft` Markdown 的元数据头格式
-- [ ] 设计正文区与元数据区解析规则
-- [ ] 设计回写覆盖策略
-- [ ] 设计冲突检测策略
-- [ ] 明确 `source_version` 递增规则
-- [ ] 明确 `updated_from` 枚举值
+- [x] 明确 `plan` / `draft` Markdown 的元数据头格式
+- [x] 设计正文区与元数据区解析规则
+- [x] 设计回写覆盖策略
+- [x] 设计冲突检测策略
+- [x] 明确 `source_version` 递增规则
+- [x] 明确 `updated_from` 枚举值
 
 交付物：
 
@@ -73,19 +74,19 @@
 
 ### Phase 2：回写相关数据库变更
 
-阶段状态：未开始
+阶段状态：已完成
 
-- [ ] 为 `chapter_plans` 增加 `source_version`
-- [ ] 为 `chapter_plans` 增加 `last_export_path`
-- [ ] 为 `chapter_plans` 增加 `last_exported_at`
-- [ ] 为 `chapter_plans` 增加 `last_imported_at`
-- [ ] 为 `chapter_plans` 增加 `updated_from`
-- [ ] 为 `chapter_drafts` 增加 `source_version`
-- [ ] 为 `chapter_drafts` 增加 `last_export_path`
-- [ ] 为 `chapter_drafts` 增加 `last_exported_at`
-- [ ] 为 `chapter_drafts` 增加 `last_imported_at`
-- [ ] 为 `chapter_drafts` 增加 `updated_from`
-- [ ] 补 migration 测试
+- [x] 为 `chapter_plans` 增加 `source_version`
+- [x] 为 `chapter_plans` 增加 `last_export_path`
+- [x] 为 `chapter_plans` 增加 `last_exported_at`
+- [x] 为 `chapter_plans` 增加 `last_imported_at`
+- [x] 为 `chapter_plans` 增加 `updated_from`
+- [x] 为 `chapter_drafts` 增加 `source_version`
+- [x] 为 `chapter_drafts` 增加 `last_export_path`
+- [x] 为 `chapter_drafts` 增加 `last_exported_at`
+- [x] 为 `chapter_drafts` 增加 `last_imported_at`
+- [x] 为 `chapter_drafts` 增加 `updated_from`
+- [x] 补 migration 测试
 
 交付物：
 
@@ -99,14 +100,14 @@
 
 ### Phase 3：Markdown 解析与导入基础设施
 
-阶段状态：未开始
+阶段状态：已完成
 
-- [ ] 实现 Markdown 元数据解析器
-- [ ] 实现正文提取器
-- [ ] 实现 `plan` 导入数据校验器
-- [ ] 实现 `draft` 导入数据校验器
-- [ ] 实现版本冲突检测器
-- [ ] 为导入错误类型补清晰提示和 hint
+- [x] 实现 Markdown 元数据解析器
+- [x] 实现正文提取器
+- [x] 实现 `plan` 导入数据校验器
+- [x] 实现 `draft` 导入数据校验器
+- [x] 实现版本冲突检测器
+- [x] 为导入错误类型补清晰提示和 hint
 
 建议新增模块：
 
@@ -125,18 +126,18 @@
 
 ### Phase 4：Plan 回写命令闭环
 
-阶段状态：未开始
+阶段状态：已完成
 
-- [ ] 增强 `plan export`，导出元数据头
-- [ ] 记录 `chapter_plans.last_export_path`
-- [ ] 记录 `chapter_plans.last_exported_at`
-- [ ] 实现 `novel plan import --chapter <id> --input <path>`
-- [ ] 导入后更新 `plan_text`
-- [ ] 导入后递增 `source_version`
-- [ ] 导入后写入 `last_imported_at`
-- [ ] 导入后写入 `updated_from = manual_import`
-- [ ] 为 `plan import` 增加 help examples
-- [ ] 为 `plan export/import` 增加 CLI 测试
+- [x] 增强 `plan export`，导出元数据头
+- [x] 记录 `chapter_plans.last_export_path`
+- [x] 记录 `chapter_plans.last_exported_at`
+- [x] 实现 `novel plan import --chapter <id> --input <path>`
+- [x] 导入后更新 `plan_text`
+- [x] 导入后递增 `source_version`
+- [x] 导入后写入 `last_imported_at`
+- [x] 导入后写入 `updated_from = manual_import`
+- [x] 为 `plan import` 增加 help examples
+- [x] 为 `plan export/import` 增加 CLI 测试
 
 交付物：
 
@@ -150,18 +151,18 @@
 
 ### Phase 5：Draft 回写命令闭环
 
-阶段状态：未开始
+阶段状态：已完成
 
-- [ ] 增强 `draft` Markdown 导出，写入元数据头
-- [ ] 记录 `chapter_drafts.last_export_path`
-- [ ] 记录 `chapter_drafts.last_exported_at`
-- [ ] 实现 `novel draft import --draft <id> --input <path>`
-- [ ] 导入后更新 `draft_text`
-- [ ] 导入后递增 `source_version`
-- [ ] 导入后写入 `last_imported_at`
-- [ ] 导入后写入 `updated_from = manual_import`
-- [ ] 兼容 `draft review` 后的再次导出与再次回写
-- [ ] 为 `draft export/import` 增加 CLI 测试
+- [x] 增强 `draft` Markdown 导出，写入元数据头
+- [x] 记录 `chapter_drafts.last_export_path`
+- [x] 记录 `chapter_drafts.last_exported_at`
+- [x] 实现 `novel draft import --draft <id> --input <path>`
+- [x] 导入后更新 `draft_text`
+- [x] 导入后递增 `source_version`
+- [x] 导入后写入 `last_imported_at`
+- [x] 导入后写入 `updated_from = manual_import`
+- [x] 兼容 `draft review` 后的再次导出与再次回写
+- [x] 为 `draft export/import` 增加 CLI 测试
 
 交付物：
 
@@ -175,14 +176,14 @@
 
 ### Phase 6：回写与生成流程一致性治理
 
-阶段状态：未开始
+阶段状态：已完成
 
-- [ ] 统一 `ai_generate / ai_fix / manual_import` 的版本更新规则
-- [ ] 梳理 `chapter plan` 对已有手工回写内容的覆盖规则
-- [ ] 梳理 `draft write` 对已有手工回写 draft 的覆盖规则
-- [ ] 增加 `--force` 或等效覆盖选项
-- [ ] 补回写后再次生成的回归测试
-- [ ] 明确 run history 对手工导入的记录策略
+- [x] 统一 `ai_generate / ai_fix / manual_import` 的版本更新规则
+- [x] 梳理 `chapter plan` 对已有手工回写内容的覆盖规则
+- [x] 梳理 `draft write` 对已有手工回写 draft 的覆盖规则
+- [x] 增加 `--force` 或等效覆盖选项
+- [x] 补回写后再次生成的回归测试
+- [x] 明确 run history 对手工导入的记录策略
 
 交付物：
 
@@ -195,16 +196,16 @@
 
 ### Phase 7：Approve 后状态快照表设计与迁移
 
-阶段状态：未开始
+阶段状态：部分完成
 
-- [ ] 创建 `chapter_state_snapshots`
-- [ ] 创建 `character_state_snapshots`
-- [ ] 创建 `faction_state_snapshots`
-- [ ] 创建 `hook_state_snapshots`
+- [x] 创建 `chapter_state_snapshots`
+- [x] 创建 `character_state_snapshots`
+- [x] 创建 `faction_state_snapshots`
+- [x] 创建 `hook_state_snapshots`
 - [ ] 创建 `item_state_snapshots`
-- [ ] 为 `chapter_snapshot_id` 建立外键与索引
-- [ ] 明确 `status`、`progress_status` 等枚举
-- [ ] 为快照表补 migration 测试
+- [x] 为 `chapter_snapshot_id` 建立外键与索引
+- [x] 明确 `status`、`progress_status` 等枚举
+- [x] 为快照表补 migration 测试
 
 交付物：
 
@@ -217,18 +218,18 @@
 
 ### Phase 8：Approve 状态同步服务
 
-阶段状态：未开始
+阶段状态：部分完成
 
-- [ ] 梳理当前 `draft review --action approve` 调用链
+- [x] 梳理当前 `draft review --action approve` 调用链
 - [ ] 抽出 `ApprovalService`
 - [ ] 抽出 `StateExtractionService`
 - [ ] 抽出 `StateUpdateService`
-- [ ] 在 `approve` 后创建 `chapter_state_snapshots`
-- [ ] 在 `approve` 后写入人物状态快照
-- [ ] 在 `approve` 后写入势力状态快照
-- [ ] 在 `approve` 后写入钩子状态快照
-- [ ] 保证失败时事务回滚
-- [ ] 补 approve 状态同步测试
+- [x] 在 `approve` 后创建 `chapter_state_snapshots`
+- [x] 在 `approve` 后写入人物状态快照
+- [x] 在 `approve` 后写入势力状态快照
+- [x] 在 `approve` 后写入钩子状态快照
+- [x] 保证失败时事务回滚
+- [x] 补 approve 状态同步测试
 
 交付物：
 
@@ -242,13 +243,13 @@
 
 ### Phase 9：状态命令与可视化查询
 
-阶段状态：未开始
+阶段状态：部分完成
 
 - [ ] 实现 `novel state chapter-preview --chapter <id>`
 - [ ] 实现 `novel state approve-sync --chapter <id>`
-- [ ] 实现 `novel state show --project <id>`
-- [ ] 为状态命令补 help examples
-- [ ] 为状态命令补 CLI 测试
+- [x] 实现 `novel state show --project <id>`
+- [x] 为状态命令补 help examples
+- [x] 为状态命令补 CLI 测试
 
 交付物：
 
@@ -261,20 +262,25 @@
 
 ### Phase 10：Anthropic Provider 接入
 
-阶段状态：未开始
+阶段状态：已完成
 
-- [ ] 扩展 `AIProviderType`
-- [ ] 实现 `AnthropicProvider`
-- [ ] 在 `provider-factory` 中接入 `anthropic`
-- [ ] 扩展配置解析
-- [ ] 扩展 `ai status`
-- [ ] 扩展 `ai doctor`
-- [ ] 为 `anthropic` 增加基础错误分类
-- [ ] 为 `anthropic` 补 mock 级和配置级测试
+- [x] 扩展 `AIProviderType`
+- [x] 实现 `AnthropicProvider`
+- [x] 在 `provider-factory` 中接入 `anthropic`
+- [x] 扩展配置解析
+- [x] 扩展 `ai status`
+- [x] 扩展 `ai doctor`
+- [x] 为 `anthropic` 增加基础错误分类
+- [x] 为 `anthropic` 补 mock 级和配置级测试
 
 交付物：
 
 - `mock / openai / anthropic` 三 provider 共存
+
+当前补充说明：
+
+- 实际上已额外支持 `custom` provider
+- provider 配置解析、网络探测和错误提示已经统一收口
 
 验收标准：
 
@@ -283,7 +289,7 @@
 
 ### Phase 11：人物物品系统表与基础命令
 
-阶段状态：未开始
+阶段状态：部分完成
 
 - [ ] 创建 `items`
 - [ ] 创建 `character_items`
@@ -330,12 +336,12 @@
 
 阶段状态：未开始
 
-- [ ] 为 `plan import` 增加日志
-- [ ] 为 `draft import` 增加日志
-- [ ] 为状态同步命令增加日志
+- [x] 为 `plan import` 增加日志
+- [x] 为 `draft import` 增加日志
+- [x] 为状态同步命令增加日志
 - [ ] 为 `item` 命令增加日志
-- [ ] 为 `anthropic` 使用方式补 README
-- [ ] 为回写流程补 README 示例
+- [x] 为 `anthropic` 使用方式补 README
+- [x] 为回写流程补 README 示例
 - [ ] 统一 help examples 与错误提示
 
 交付物：
@@ -349,15 +355,15 @@
 
 ### Phase 14：测试与收尾
 
-阶段状态：未开始
+阶段状态：部分完成
 
-- [ ] 为 Markdown 回写补单元测试
-- [ ] 为导入冲突补测试
-- [ ] 为状态快照 repository 补测试
-- [ ] 为 approve 状态同步补服务测试
-- [ ] 为 anthropic 配置与 doctor 补测试
+- [x] 为 Markdown 回写补单元测试
+- [x] 为导入冲突补测试
+- [x] 为状态快照 repository 补测试
+- [x] 为 approve 状态同步补服务测试
+- [x] 为 anthropic 配置与 doctor 补测试
 - [ ] 为 item 与 character_items 补测试
-- [ ] 跑通全量 `build / typecheck / test`
+- [x] 跑通全量 `build / typecheck / test`
 - [ ] 补齐剩余文档
 
 交付物：
@@ -403,10 +409,10 @@
 
 当前更推荐的现实开发节奏：
 
-1. 先完成 `plan / draft` 回写闭环
-2. 再把 `approve` 的状态快照做实
-3. 再接 `anthropic`
-4. 最后补物品系统并接入上下文和状态快照
+1. 先完成人物物品系统基础表和 CLI
+2. 再把物品接入 context、prompt、review 和状态快照
+3. 再补 `state chapter-preview / approve-sync`
+4. 最后继续补帮助文本、README 和测试收口
 
 ## 6. 第一批开发建议
 
@@ -424,3 +430,9 @@
 - 可以手改
 - 可以回写
 - 可以继续生成和审批
+
+当前这批已经完成，下一批最值得进入编码的是：
+
+1. `Phase 11`
+2. `Phase 12`
+3. `Phase 9` 中剩余的两个状态命令
