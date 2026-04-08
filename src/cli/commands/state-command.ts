@@ -90,6 +90,40 @@ Examples:
     );
 
   state
+    .command("approve-sync")
+    .description("Rebuild approved state snapshots from chapter final text.")
+    .requiredOption("--chapter <id>", "Chapter id", (value: string) =>
+      parseRequiredIntegerOption(value, "--chapter")
+    )
+    .action(async (options) => {
+      await assertInitialized(process.cwd());
+      const context = await loadRuntimeContext(process.cwd());
+      const service = new StateService(context);
+      const result = await service.approveSyncChapter({
+        chapterId: options.chapter
+      });
+
+      console.table([
+        {
+          chapter_id: result.chapterId,
+          project_id: result.projectId,
+          chapter_snapshot_id: result.chapterSnapshotId,
+          replaced_snapshot_count: result.replacedSnapshotCount,
+          character_snapshot_count: result.characterSnapshotCount,
+          faction_snapshot_count: result.factionSnapshotCount,
+          hook_snapshot_count: result.hookSnapshotCount,
+          item_state_count: result.itemStateCount
+        }
+      ]);
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel state approve-sync --chapter 1`
+    );
+
+  state
     .command("show")
     .description("Show chapter and object state snapshots.")
     .requiredOption("--project <id>", "Project id", (value: string) =>

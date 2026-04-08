@@ -1634,6 +1634,37 @@ export interface ChapterStatePreviewResult {
 }
 
 /**
+ * 历史章节状态补同步输入。
+ * 用于对已经存在 final_text 的章节重新执行一次正式状态提取与写入。
+ */
+export interface ApproveSyncChapterInput {
+  /** 章节 ID。 */
+  chapterId: number;
+}
+
+/**
+ * 历史章节状态补同步结果。
+ */
+export interface ApproveSyncChapterResult {
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 新写入的章节状态快照 ID。 */
+  chapterSnapshotId: number;
+  /** 本次删除并重建前，旧章节快照数量。 */
+  replacedSnapshotCount: number;
+  /** 本次重建后的人物状态数量。 */
+  characterSnapshotCount: number;
+  /** 本次重建后的势力状态数量。 */
+  factionSnapshotCount: number;
+  /** 本次重建后的钩子状态数量。 */
+  hookSnapshotCount: number;
+  /** 本次提取到的物品状态数量。 */
+  itemStateCount: number;
+}
+
+/**
  * 生成记录实体的读取结果。
  * 对应 `generation_runs` 表，用于追踪每次 plan/draft/review 等 AI 生成动作。
  */

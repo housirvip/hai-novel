@@ -242,10 +242,10 @@
 
 ### Phase 9：状态命令与可视化查询
 
-阶段状态：部分完成
+阶段状态：已完成
 
-- [ ] 实现 `novel state chapter-preview --chapter <id>`
-- [ ] 实现 `novel state approve-sync --chapter <id>`
+- [x] 实现 `novel state chapter-preview --chapter <id>`
+- [x] 实现 `novel state approve-sync --chapter <id>`
 - [x] 实现 `novel state show --project <id>`
 - [x] 为状态命令补 help examples
 - [x] 为状态命令补 CLI 测试
@@ -415,9 +415,8 @@
 当前更推荐的现实开发节奏：
 
 1. 先继续补物品状态的查询与展示能力
-2. 再补 `state chapter-preview / approve-sync`
-3. 再拆 approve 状态同步相关 service
-4. 最后继续补帮助文本、README 和测试收口
+2. 再拆 approve 状态同步相关 service
+3. 最后继续补帮助文本、README 和测试收口
 
 ## 6. 第一批开发建议
 
@@ -438,6 +437,6 @@
 
 当前这批已经完成，下一批最值得进入编码的是：
 
-1. `Phase 12` 里剩余的物品状态查询与展示
-2. `Phase 9` 中剩余的两个状态命令
-3. `Phase 8` 中剩余的 service 拆分
+1. `Phase 12` 里剩余的物品状态查询与展示增强
+2. `Phase 8` 中剩余的 service 拆分
+3. 帮助文本与 README 继续收口

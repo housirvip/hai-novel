@@ -166,6 +166,8 @@ novel plan show
 novel draft write
 novel draft review
 novel draft drop
+novel state chapter-preview
+novel state approve-sync
 novel run history
 novel run show
 novel run export
@@ -264,6 +266,14 @@ npm run dev -- ai doctor --section all --test-generate --test-prompt "请只回�
 npm run dev -- ai doctor --section all --test-generate --test-task chapter-plan --project 1 --chapter 1
 npm run dev -- ai doctor --section all --test-generate --test-task draft-write --project 1 --chapter 1
 npm run dev -- ai doctor --section all --test-generate --test-task draft-fix --draft 1 --notes "重点收紧节奏"
+```
+
+## 状态预览与补同步
+
+```bash
+npm run dev -- state chapter-preview --chapter 1
+npm run dev -- state approve-sync --chapter 1
+npm run dev -- state show --project 1 --chapter 1
 ```
 
 ## 生成历史导出

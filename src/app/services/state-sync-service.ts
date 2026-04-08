@@ -72,7 +72,7 @@ export class StateSyncService {
   applyApprovedChapterState(input: {
     projectId: number;
     chapterId: number;
-    draftId: number;
+    draftId?: number;
     payload: ExtractedChapterStatePayload;
     rawOutput: string;
   }): {

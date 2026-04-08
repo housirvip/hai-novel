@@ -99,4 +99,16 @@ export class ChapterStateSnapshotRepository {
       )
       .all(chapterId);
   }
+
+  // 按章节删除已有章节快照；由于对象快照对章节快照建了级联外键，这里删除主表即可一并清空附属快照。
+  deleteByChapterId(chapterId: number): number {
+    const result = this.database
+      .prepare<[number], Database.RunResult>(
+        `DELETE FROM chapter_state_snapshots
+         WHERE chapter_id = ?`
+      )
+      .run(chapterId);
+
+    return result.changes;
+  }
 }

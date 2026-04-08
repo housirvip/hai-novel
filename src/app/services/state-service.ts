@@ -8,6 +8,8 @@ import { FactionStateSnapshotRepository } from "../../db/repositories/faction-st
 import { HookStateSnapshotRepository } from "../../db/repositories/hook-state-snapshot-repository.js";
 import { ItemRepository } from "../../db/repositories/item-repository.js";
 import type {
+  ApproveSyncChapterInput,
+  ApproveSyncChapterResult,
   ChapterStatePreviewResult,
   ChapterStateSnapshotRecord,
   PreviewChapterStateInput,
@@ -78,6 +80,68 @@ export class StateService {
         sourceDraftId,
         payload: extracted.payload,
         rawOutput: extracted.rawOutput
+      };
+    } finally {
+      database.close();
+    }
+  }
+
+  async approveSyncChapter(input: ApproveSyncChapterInput): Promise<ApproveSyncChapterResult> {
+    logger.start(`state:approve-sync chapter=${input.chapterId}`);
+
+    const database = createDatabase(this.context.dbPath);
+    try {
+      const chapterRepository = new ChapterRepository(database);
+      const chapterSnapshotRepository = new ChapterStateSnapshotRepository(database);
+      const chapter = chapterRepository.findDetailById(input.chapterId);
+      if (!chapter) {
+        throw new Error(`Chapter ${input.chapterId} not found.`);
+      }
+
+      if (!chapter.final_text) {
+        throw new Error(
+          `No final text found for chapter ${input.chapterId}. Approve a draft before running approve-sync.`
+        );
+      }
+
+      const stateSyncService = new StateSyncService(this.context, database);
+      const extracted = await stateSyncService.extractApprovedChapterState({
+        projectId: chapter.project_id,
+        chapterId: chapter.id,
+        draftId: chapter.approved_draft_id ?? 0,
+        finalText: chapter.final_text
+      });
+
+      const previousSnapshots = chapterSnapshotRepository.findAllByChapterId(chapter.id);
+      const syncResult = database.transaction(() => {
+        const replacedSnapshotCount = chapterSnapshotRepository.deleteByChapterId(chapter.id);
+        const applied = stateSyncService.applyApprovedChapterState({
+          projectId: chapter.project_id,
+          chapterId: chapter.id,
+          draftId: chapter.approved_draft_id ?? undefined,
+          payload: extracted.payload,
+          rawOutput: extracted.rawOutput
+        });
+
+        return {
+          replacedSnapshotCount,
+          applied
+        };
+      })();
+
+      logger.success(
+        `state:approve-sync chapter=${input.chapterId} replaced=${previousSnapshots.length} chapter_snapshot=${syncResult.applied.chapterSnapshot.id}`
+      );
+
+      return {
+        chapterId: chapter.id,
+        projectId: chapter.project_id,
+        chapterSnapshotId: syncResult.applied.chapterSnapshot.id,
+        replacedSnapshotCount: syncResult.replacedSnapshotCount,
+        characterSnapshotCount: syncResult.applied.characterSnapshotCount,
+        factionSnapshotCount: syncResult.applied.factionSnapshotCount,
+        hookSnapshotCount: syncResult.applied.hookSnapshotCount,
+        itemStateCount: syncResult.applied.itemStateCount
       };
     } finally {
       database.close();

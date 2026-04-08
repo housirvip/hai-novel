@@ -330,6 +330,10 @@ test("核心命令帮助文本会展示示例", () => {
   assert.match(statePreviewHelp, /Examples:/);
   assert.match(statePreviewHelp, /novel state chapter-preview --chapter 1/);
 
+  const stateApproveSyncHelp = runBuiltCli(workspace, ["state", "approve-sync", "--help"]);
+  assert.match(stateApproveSyncHelp, /Examples:/);
+  assert.match(stateApproveSyncHelp, /novel state approve-sync --chapter 1/);
+
   const runHelp = runBuiltCli(workspace, ["run", "export", "--help"]);
   assert.match(runHelp, /Examples:/);
   assert.match(runHelp, /novel run export --id 8 --section all --format md/);
