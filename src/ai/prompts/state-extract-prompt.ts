@@ -64,6 +64,23 @@ export function buildStateExtractPrompt(input: {
   }
   const hookLines = hookMap.size > 0 ? Array.from(hookMap.values()).join("\n") : "HOOK|none";
 
+  const itemLines =
+    input.context.active_character_items.length > 0
+      ? input.context.active_character_items
+          .map(
+            (link) =>
+              `ITEM|id=${link.item_id}|name=${link.item_name}|owner_character_id=${link.character_id}|owner_name=${link.character_name}|note=${link.note ?? ""}`
+          )
+          .join("\n")
+      : input.context.items.length > 0
+        ? input.context.items
+            .map(
+              (item) =>
+                `ITEM|id=${item.id}|name=${item.name}|owner_character_id=|owner_name=|note=${item.description ?? item.origin ?? ""}`
+            )
+            .join("\n")
+        : "ITEM|none";
+
   return [
     `项目：${input.context.project.name}`,
     `章节：${input.context.chapter.title}`,
@@ -77,6 +94,9 @@ export function buildStateExtractPrompt(input: {
     "",
     "候选钩子：",
     hookLines,
+    "",
+    "候选物品：",
+    itemLines,
     "",
     "正式文稿：",
     input.finalText,
@@ -108,6 +128,14 @@ export function buildStateExtractPrompt(input: {
     '      "progress_status": "pending 或 started 或 advanced 或 resolved",',
     '      "progress_note": "字符串"',
     "    }",
+    "  ],",
+    '  "items": [',
+    "    {",
+    '      "item_id": 1,',
+    '      "owner_character_id": 1,',
+    '      "status_summary": "字符串",',
+    '      "location": "字符串或空字符串"',
+    "    }",
     "  ]",
     "}",
     "",
@@ -116,6 +144,7 @@ export function buildStateExtractPrompt(input: {
     "2. 只提取已经在正式文稿中真正落地的状态，不要把 plan 或推测当事实。",
     "3. 若某对象没有明确变化，可以不输出它。",
     "4. 钩子若文稿已有推进或回收迹象，progress_status 应为 started / advanced / resolved。",
-    "5. 必须输出合法 JSON。"
+    "5. 物品只需要提取本章明确写到的关键道具，不需要穷举全部库存。",
+    "6. 必须输出合法 JSON。"
   ].join("\n");
 }

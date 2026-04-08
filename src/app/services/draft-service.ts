@@ -301,7 +301,8 @@ export class DraftService {
           `state_sync: chapter_snapshot=${approvalResult.stateSyncResult.chapterSnapshot.id}`,
           `state_sync: characters=${approvalResult.stateSyncResult.characterSnapshotCount}`,
           `state_sync: factions=${approvalResult.stateSyncResult.factionSnapshotCount}`,
-          `state_sync: hooks=${approvalResult.stateSyncResult.hookSnapshotCount}`
+          `state_sync: hooks=${approvalResult.stateSyncResult.hookSnapshotCount}`,
+          `state_sync: items=${approvalResult.stateSyncResult.itemStateCount}`
         ].join("\n"),
         model: "rule-reviewer-v1",
         status: "success"
@@ -541,6 +542,18 @@ export class DraftService {
       });
     }
 
+    const itemKeywords = this.resolveImportantItemKeywords(context);
+    if (
+      itemKeywords.length > 0 &&
+      !itemKeywords.some((keyword) => draftText.includes(keyword))
+    ) {
+      issues.push({
+        level: "warning",
+        title: "关键物品落地不足",
+        detail: "当前章节已有关键物品上下文，但草稿没有把这些道具真正写进正文，后续状态追踪会变得发虚。"
+      });
+    }
+
     if (issues.length === 0) {
       issues.push({
         level: "warning",
@@ -614,6 +627,17 @@ export class DraftService {
       }
     }
 
+    if (issues.some((issue) => issue.title === "关键物品落地不足")) {
+      const itemKeyword = this.resolveImportantItemKeywords(context)[0];
+      if (itemKeyword && !fixedText.includes(itemKeyword)) {
+        fixedText = [
+          fixedText,
+          "",
+          `${itemKeyword}在这一章里不该只是背景摆设，它的存在本身就推动了人物判断和局势变化。`
+        ].join("\n");
+      }
+    }
+
     if (issues.some((issue) => issue.title === "章节摘要落地不足")) {
       const summaryKeyword = this.extractKeywords(context.chapter.summary)[0];
       if (summaryKeyword && !fixedText.includes(summaryKeyword)) {
@@ -678,6 +702,30 @@ export class DraftService {
     for (const hook of context.target_hooks) {
       for (const keyword of this.extractKeywords(hook.title)) {
         values.add(keyword);
+      }
+    }
+
+    return [...values];
+  }
+
+  private resolveImportantItemKeywords(context: ChapterGenerationContext): string[] {
+    const values = new Set<string>();
+
+    for (const link of context.active_character_items.slice(0, 5)) {
+      for (const keyword of this.extractKeywords(link.item_name)) {
+        values.add(keyword);
+      }
+
+      for (const keyword of this.extractKeywords(link.note)) {
+        values.add(keyword);
+      }
+    }
+
+    if (values.size === 0) {
+      for (const item of context.items.slice(0, 3)) {
+        for (const keyword of this.extractKeywords(item.name)) {
+          values.add(keyword);
+        }
       }
     }
 

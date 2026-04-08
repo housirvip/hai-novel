@@ -4,10 +4,12 @@ import { CharacterRelationRepository } from "../../db/repositories/character-rel
 import { CharacterRepository } from "../../db/repositories/character-repository.js";
 import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
 import { ChapterStateSnapshotRepository } from "../../db/repositories/chapter-state-snapshot-repository.js";
+import { CharacterItemRepository } from "../../db/repositories/character-item-repository.js";
 import { FactionRepository } from "../../db/repositories/faction-repository.js";
 import { FactionStateSnapshotRepository } from "../../db/repositories/faction-state-snapshot-repository.js";
 import { HookChapterLinkRepository } from "../../db/repositories/hook-chapter-link-repository.js";
 import { HookStateSnapshotRepository } from "../../db/repositories/hook-state-snapshot-repository.js";
+import { ItemRepository } from "../../db/repositories/item-repository.js";
 import { LoreRepository } from "../../db/repositories/lore-repository.js";
 import { OutlineRepository } from "../../db/repositories/outline-repository.js";
 import { ProjectRepository } from "../../db/repositories/project-repository.js";
@@ -20,9 +22,11 @@ import type {
   CharacterListItem,
   CharacterStateSnapshotRecord,
   ChapterHookLinkListItem,
+  CharacterItemListItem,
   FactionRecord,
   FactionStateSnapshotRecord,
   HookStateSnapshotRecord,
+  ItemListItem,
   OutlineRecord,
   StoryHookListItem
 } from "../../domain/types/index.js";
@@ -33,6 +37,7 @@ const HOOK_RELEVANCE = runtimeEnv.relevance.hook;
 const SNAPSHOT_BASE_SCORE = runtimeEnv.relevance.snapshotBaseScore;
 const HOOK_STATE_RESOLVED_BONUS = runtimeEnv.relevance.hookStateResolvedBonus;
 const HOOK_STATE_ADVANCED_BONUS = runtimeEnv.relevance.hookStateAdvancedBonus;
+const MAX_ITEM_CONTEXT_ITEMS = 5;
 
 export class ChapterContextBuilder {
   constructor(private readonly database: Database.Database) {}
@@ -54,6 +59,8 @@ export class ChapterContextBuilder {
     const hookStateSnapshotRepository = new HookStateSnapshotRepository(this.database);
     const hookRepository = new StoryHookRepository(this.database);
     const hookLinkRepository = new HookChapterLinkRepository(this.database);
+    const itemRepository = new ItemRepository(this.database);
+    const characterItemRepository = new CharacterItemRepository(this.database);
 
     const chapter = chapterRepository.findDetailById(input.chapterId);
     if (!chapter) {
@@ -77,6 +84,10 @@ export class ChapterContextBuilder {
       .filter((item) => item.parent_id === null);
     const characters = characterRepository.findAllByProjectId(input.projectId);
     const factions = factionRepository.findAllByProjectId(input.projectId);
+    const items = itemRepository.findAllByProjectId(input.projectId);
+    const activeCharacterItems = characterItemRepository.findAllByProjectId(input.projectId, {
+      activeOnly: true
+    });
     const loreEntries = loreRepository.findAllByProjectId(input.projectId);
     const characterRelations = characterRelationRepository.findAllByProjectId(input.projectId);
     const characterFactionRelations = characterFactionRelationRepository.findAllByProjectId(
@@ -122,6 +133,11 @@ export class ChapterContextBuilder {
     };
     const sortedCharacters = this.sortCharactersByRelevance(relevanceInput);
     const sortedFactions = this.sortFactionsByRelevance(relevanceInput);
+    const sortedItems = this.sortItemsByRelevance(relevanceInput, items, activeCharacterItems);
+    const sortedActiveCharacterItems = this.sortActiveCharacterItemsByRelevance(
+      relevanceInput,
+      activeCharacterItems
+    );
     const sortedActiveHooks = this.sortHooksByRelevance(relevanceInput, activeHooks);
     const sortedTargetHooks = this.sortHooksByRelevance(relevanceInput, targetHooks);
     const sortedLatestCharacterStates = this.sortCharacterStatesByRelevance(
@@ -145,6 +161,8 @@ export class ChapterContextBuilder {
       lore_entries: loreEntries,
       characters: sortedCharacters,
       factions: sortedFactions,
+      items: sortedItems,
+      active_character_items: sortedActiveCharacterItems,
       character_relations: characterRelations,
       character_faction_relations: characterFactionRelations,
       hook_links: hookLinks,
@@ -155,6 +173,118 @@ export class ChapterContextBuilder {
       latest_faction_states: sortedLatestFactionStates,
       latest_hook_states: sortedLatestHookStates
     };
+  }
+
+  private sortItemsByRelevance(
+    input: {
+      chapter: ChapterGenerationContext["chapter"];
+      outlineChain: OutlineRecord[];
+      characters: CharacterListItem[];
+      factions: FactionRecord[];
+      hookLinks: ChapterHookLinkListItem[];
+      targetHooks: StoryHookListItem[];
+      activeHooks: StoryHookListItem[];
+      latestCharacterStates: CharacterStateSnapshotRecord[];
+      latestFactionStates: FactionStateSnapshotRecord[];
+      latestHookStates: HookStateSnapshotRecord[];
+    },
+    items: ItemListItem[],
+    activeCharacterItems: CharacterItemListItem[]
+  ): ItemListItem[] {
+    const textSignals = this.buildTextSignals(input);
+    const mentionedCharacterIds = new Set(
+      input.characters
+        .filter((character) => this.textSignalsContain(textSignals, character.name))
+        .map((character) => character.id)
+    );
+    const activeItemIds = new Set(activeCharacterItems.map((link) => link.item_id));
+    const activeItemByMentionedOwnerIds = new Set(
+      activeCharacterItems
+        .filter((link) => mentionedCharacterIds.has(link.character_id))
+        .map((link) => link.item_id)
+    );
+
+    return this.sortByScore(items, (item) => {
+      let score = 0;
+
+      if (this.textSignalsContain(textSignals, item.name)) {
+        // 物品名直接命中章节材料时，说明它就是本章显式道具。
+        score += 100;
+      }
+
+      if (
+        (item.description && this.textSignalsContain(textSignals, item.description)) ||
+        (item.origin && this.textSignalsContain(textSignals, item.origin))
+      ) {
+        // 描述或来源被命中时，通常代表这件道具和本章语义已经靠近。
+        score += 30;
+      }
+
+      if (activeItemByMentionedOwnerIds.has(item.id)) {
+        // 已被本章关键人物持有的道具，优先级略高于普通活跃物品。
+        score += 25;
+      } else if (activeItemIds.has(item.id)) {
+        // 当前仍在流转中的道具，比纯背景物更值得被看见。
+        score += 10;
+      }
+
+      return score;
+    });
+  }
+
+  private sortActiveCharacterItemsByRelevance(
+    input: {
+      chapter: ChapterGenerationContext["chapter"];
+      outlineChain: OutlineRecord[];
+      characters: CharacterListItem[];
+      factions: FactionRecord[];
+      hookLinks: ChapterHookLinkListItem[];
+      targetHooks: StoryHookListItem[];
+      activeHooks: StoryHookListItem[];
+      latestCharacterStates: CharacterStateSnapshotRecord[];
+      latestFactionStates: FactionStateSnapshotRecord[];
+      latestHookStates: HookStateSnapshotRecord[];
+    },
+    activeCharacterItems: CharacterItemListItem[]
+  ): CharacterItemListItem[] {
+    const itemOrder = new Map(
+      this.sortItemsByRelevance(input, this.pickDistinctItems(activeCharacterItems), activeCharacterItems)
+        .map((item, index) => [item.id, index])
+    );
+
+    return this.sortByScore(activeCharacterItems, (link) => {
+      const order = itemOrder.get(link.item_id);
+      // 人物持有关系优先跟随“物品本体”的顺序，避免上下文里道具和持有人关系脱节。
+      return order !== undefined ? SNAPSHOT_BASE_SCORE - order : 0;
+    });
+  }
+
+  private pickDistinctItems(activeCharacterItems: CharacterItemListItem[]): ItemListItem[] {
+    const seen = new Set<number>();
+    const result: ItemListItem[] = [];
+
+    for (const link of activeCharacterItems) {
+      if (seen.has(link.item_id)) {
+        continue;
+      }
+
+      seen.add(link.item_id);
+      result.push({
+        id: link.item_id,
+        project_id: link.project_id,
+        name: link.item_name,
+        category: null,
+        rarity: null,
+        description: null,
+        origin: null,
+        status: "normal",
+        created_at: link.created_at,
+        updated_at: link.updated_at,
+        active_holder_count: 1
+      });
+    }
+
+    return result;
   }
 
   private pickLatestSnapshotsByKey<T>(

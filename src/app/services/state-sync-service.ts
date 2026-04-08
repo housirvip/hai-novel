@@ -39,6 +39,12 @@ interface ExtractedStatePayload {
     progress_status: HookProgressStatus;
     progress_note?: string;
   }>;
+  items: Array<{
+    item_id: number;
+    owner_character_id?: number;
+    status_summary?: string;
+    location?: string;
+  }>;
 }
 
 /**
@@ -102,6 +108,7 @@ export class StateSyncService {
     characterSnapshotCount: number;
     factionSnapshotCount: number;
     hookSnapshotCount: number;
+    itemStateCount: number;
   } {
     const chapterSnapshotRepository = new ChapterStateSnapshotRepository(this.database);
     const chapterSnapshot = chapterSnapshotRepository.create({
@@ -158,7 +165,8 @@ export class StateSyncService {
       chapterSnapshot,
       characterSnapshotCount: input.payload.characters.length,
       factionSnapshotCount: input.payload.factions.length,
-      hookSnapshotCount: input.payload.hooks.length
+      hookSnapshotCount: input.payload.hooks.length,
+      itemStateCount: input.payload.items.length
     };
   }
 
@@ -178,6 +186,8 @@ export class StateSyncService {
       ...context.target_hooks.map((item) => item.id),
       ...context.active_hooks.map((item) => item.id)
     ]);
+    const validItemIds = new Set(context.items.map((item) => item.id));
+    const validOwnerCharacterIds = new Set(context.characters.map((character) => character.id));
 
     const characters = Array.isArray(parsed.characters)
       ? parsed.characters.filter(
@@ -210,14 +220,28 @@ export class StateSyncService {
         )
       : [];
 
+    const items = Array.isArray(parsed.items)
+      ? parsed.items.filter(
+          (item): item is ExtractedStatePayload["items"][number] =>
+            typeof item === "object" &&
+            item !== null &&
+            typeof item.item_id === "number" &&
+            validItemIds.has(item.item_id) &&
+            (item.owner_character_id === undefined ||
+              (typeof item.owner_character_id === "number" &&
+                validOwnerCharacterIds.has(item.owner_character_id)))
+        )
+      : [];
+
     return {
       chapter_summary:
         typeof parsed.chapter_summary === "string" && parsed.chapter_summary.trim()
           ? parsed.chapter_summary.trim()
-          : `角色提及 ${characters.length} 个，势力提及 ${factions.length} 个，钩子跟踪 ${hooks.length} 条`,
+          : `角色提及 ${characters.length} 个，势力提及 ${factions.length} 个，钩子跟踪 ${hooks.length} 条，物品提及 ${items.length} 个`,
       characters,
       factions,
-      hooks
+      hooks,
+      items
     };
   }
 

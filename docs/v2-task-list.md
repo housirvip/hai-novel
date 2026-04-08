@@ -18,13 +18,13 @@
   - CLI 命令组织和错误提示体系
 - 主要未完成项：
   - `state chapter-preview / approve-sync` 等状态工具命令
-  - 物品上下文与物品状态快照
+  - 物品状态的更细粒度持久化与查询
   - 少量帮助文本与 README 仍可继续收口
   - `ApprovalService / StateExtractionService / StateUpdateService` 仍未彻底拆分
 
 建议把接下来的开发优先级定为：
 
-1. 先把物品接入 context、prompt、review 和状态快照
+1. 先继续补物品状态的查询与展示能力
 2. 再补 `state chapter-preview / approve-sync`
 3. 再拆分 approve 状态同步相关 service
 4. 最后继续补帮助文本、README 和回归测试边角
@@ -313,23 +313,29 @@
 
 ### Phase 12：物品接入上下文与状态快照
 
-阶段状态：未开始
+阶段状态：部分完成
 
-- [ ] 将当前持有物接入 chapter context
-- [ ] 将关键物品接入 `plan` prompt
-- [ ] 将关键物品接入 `draft` prompt
-- [ ] `approve` 后生成 `item_state_snapshots`
-- [ ] 在 `review check` 中增加关键物品一致性检查
-- [ ] 补 context、prompt、review 测试
+- [x] 将当前持有物接入 chapter context
+- [x] 将关键物品接入 `plan` prompt
+- [x] 将关键物品接入 `draft` prompt
+- [x] `approve` 后将物品状态写入 `chapter_state_snapshots.raw_payload`
+- [x] 在 `review check` 中增加关键物品一致性检查
+- [x] 补 context、prompt、review 测试
 
 交付物：
 
 - 物品进入 AI 上下文和正式状态同步链路
 
+当前补充说明：
+
+- 这一阶段采用轻量方案，不单独创建 `item_state_snapshots`
+- 物品正式状态先提取并写入 `chapter_state_snapshots.raw_payload`
+- 等后续确实需要跨章节直接查询物品历史时，再考虑把物品状态升格为独立表
+
 验收标准：
 
 - 生成 `plan / draft` 时可看到关键物品上下文
-- `approve` 后可以查询物品状态变化
+- `approve` 后可以在章节状态快照原始 JSON 中查询物品状态变化
 
 ### Phase 13：日志、帮助文案与 README
 
@@ -408,7 +414,7 @@
 
 当前更推荐的现实开发节奏：
 
-1. 先把物品接入 context、prompt、review 和状态快照
+1. 先继续补物品状态的查询与展示能力
 2. 再补 `state chapter-preview / approve-sync`
 3. 再拆 approve 状态同步相关 service
 4. 最后继续补帮助文本、README 和测试收口
@@ -432,6 +438,6 @@
 
 当前这批已经完成，下一批最值得进入编码的是：
 
-1. `Phase 12`
+1. `Phase 12` 里剩余的物品状态查询与展示
 2. `Phase 9` 中剩余的两个状态命令
 3. `Phase 8` 中剩余的 service 拆分

@@ -1101,6 +1101,10 @@ export interface ChapterGenerationContext {
   characters: CharacterListItem[];
   /** 项目内可供调用的势力。 */
   factions: FactionRecord[];
+  /** 项目内可供调用的关键物品。 */
+  items: ItemListItem[];
+  /** 当前仍然生效的人物持有物关系。 */
+  active_character_items: CharacterItemListItem[];
   /** 项目内的人物关系网。 */
   character_relations: CharacterRelationListItem[];
   /** 项目内的人物与势力关系。 */

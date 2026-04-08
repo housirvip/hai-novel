@@ -28,6 +28,19 @@ export function buildDraftWritePrompt(input: {
           .join("\n")
       : "无";
 
+  const itemSection =
+    input.context.active_character_items.length > 0
+      ? input.context.active_character_items
+          .slice(0, 5)
+          .map(
+            (link, index) =>
+              `${index + 1}. ${link.item_name} / 持有人：${link.character_name}${
+                link.note ? ` / ${link.note}` : ""
+              }`
+          )
+          .join("\n")
+      : "无";
+
   return [
     `项目：${input.context.project.name}`,
     `章节：${input.context.chapter.title}`,
@@ -39,6 +52,9 @@ export function buildDraftWritePrompt(input: {
     input.planText,
     "",
     "本章已绑定钩子：",
-    hookSection
+    hookSection,
+    "",
+    "当前关键物品：",
+    itemSection
   ].join("\n");
 }

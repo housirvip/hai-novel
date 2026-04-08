@@ -51,6 +51,11 @@ export class MockProvider implements AIProvider {
     const hookMatches = Array.from(
       prompt.matchAll(/HOOK\|id=(\d+)\|title=([^|\n]+)\|summary=([^|\n]*)\|status=([^\n]*)/g)
     );
+    const itemMatches = Array.from(
+      prompt.matchAll(
+        /ITEM\|id=(\d+)\|name=([^|\n]+)\|owner_character_id=([^|\n]*)\|owner_name=([^|\n]*)\|note=([^\n]*)/g
+      )
+    );
 
     const characters = characterMatches
       .filter(([, , name]) => finalText.includes(name))
@@ -87,12 +92,26 @@ export class MockProvider implements AIProvider {
       };
     });
 
+    const items = itemMatches
+      .filter(([, , name]) => finalText.includes(name))
+      .map(([, id, name, ownerCharacterId, ownerName]) => ({
+        item_id: Number(id),
+        owner_character_id:
+          ownerCharacterId.trim().length > 0 &&
+          (ownerName.trim().length === 0 || finalText.includes(ownerName))
+            ? Number(ownerCharacterId)
+            : undefined,
+        status_summary: this.findMentionSummary(finalText, name),
+        location: ownerName.trim().length > 0 && finalText.includes(ownerName) ? `${ownerName}身边` : ""
+      }));
+
     return JSON.stringify(
       {
-        chapter_summary: `角色提及 ${characters.length} 个，势力提及 ${factions.length} 个，钩子跟踪 ${hooks.length} 条`,
+        chapter_summary: `角色提及 ${characters.length} 个，势力提及 ${factions.length} 个，钩子跟踪 ${hooks.length} 条，物品提及 ${items.length} 个`,
         characters,
         factions,
-        hooks
+        hooks,
+        items
       },
       null,
       2

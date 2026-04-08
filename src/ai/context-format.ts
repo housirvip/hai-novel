@@ -11,6 +11,7 @@ const MAX_RELATION_CONTEXT_ITEMS = runtimeEnv.context.maxRelationItems;
 const MAX_CHARACTER_FACTION_CONTEXT_ITEMS = runtimeEnv.context.maxCharacterFactionItems;
 const MAX_HOOK_CONTEXT_ITEMS = runtimeEnv.context.maxHookItems;
 const MAX_STATE_CONTEXT_ITEMS = runtimeEnv.context.maxStateItems;
+const MAX_ITEM_CONTEXT_ITEMS = 5;
 
 export function formatChapterContextAsText(context: ChapterGenerationContext): string {
   const outlineSection =
@@ -102,6 +103,29 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
           )
           .join("\n")
       : "1. 当前项目暂无人物与势力关系。";
+
+  const itemSection =
+    context.active_character_items.length > 0
+      ? context.active_character_items
+          .slice(0, MAX_ITEM_CONTEXT_ITEMS)
+          .map(
+            (link, index) =>
+              `${index + 1}. ${link.item_name} / 持有人：${link.character_name} / ${
+                link.ownership_type
+              }${link.note ? ` / ${link.note}` : ""}`
+          )
+          .join("\n")
+      : context.items.length > 0
+        ? context.items
+            .slice(0, MAX_ITEM_CONTEXT_ITEMS)
+            .map(
+              (item, index) =>
+                `${index + 1}. ${item.name}${item.category ? `（${item.category}）` : ""}${
+                  item.status ? ` / 状态：${item.status}` : ""
+                }${item.origin ? ` / 来源：${item.origin}` : ""}`
+            )
+            .join("\n")
+        : "1. 当前项目暂无关键物品设定。";
 
   const hookLines: string[] = [];
   if (context.hook_links.length > 0) {
@@ -220,6 +244,9 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
     "",
     "## 人物阵营上下文",
     characterFactionSection,
+    "",
+    "## 物品上下文",
+    itemSection,
     "",
     "## 钩子上下文",
     hookSection,

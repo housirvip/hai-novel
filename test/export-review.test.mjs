@@ -93,6 +93,10 @@ test("DraftService review 会检查主角、势力、钩子和摘要是否真正
     "db/repositories/chapter-draft-repository.js"
   );
   const { CharacterRepository } = await importDist("db/repositories/character-repository.js");
+  const { ItemRepository } = await importDist("db/repositories/item-repository.js");
+  const { CharacterItemRepository } = await importDist(
+    "db/repositories/character-item-repository.js"
+  );
   const { FactionRepository } = await importDist("db/repositories/faction-repository.js");
   const { CharacterFactionRelationRepository } = await importDist(
     "db/repositories/character-faction-relation-repository.js"
@@ -109,6 +113,8 @@ test("DraftService review 会检查主角、势力、钩子和摘要是否真正
     const chapterRepository = new ChapterRepository(database);
     const draftRepository = new ChapterDraftRepository(database);
     const characterRepository = new CharacterRepository(database);
+    const itemRepository = new ItemRepository(database);
+    const characterItemRepository = new CharacterItemRepository(database);
     const factionRepository = new FactionRepository(database);
     const characterFactionRelationRepository = new CharacterFactionRelationRepository(database);
     const hookRepository = new StoryHookRepository(database);
@@ -168,6 +174,19 @@ test("DraftService review 会检查主角、势力、钩子和摘要是否真正
       plannedNote: "本章埋下玉佩发热的异常",
       status: "planned"
     });
+    const item = itemRepository.create({
+      projectId: project.id,
+      name: "黑玉佩",
+      category: "artifact",
+      description: "入宗时一直贴身携带的神秘玉佩"
+    });
+    characterItemRepository.create({
+      projectId: project.id,
+      characterId: protagonist.id,
+      itemId: item.id,
+      ownershipType: "carry",
+      note: "本章应该表现它的异动"
+    });
 
     const draft = draftRepository.create({
       projectId: project.id,
@@ -188,6 +207,7 @@ test("DraftService review 会检查主角、势力、钩子和摘要是否真正
     assert.equal(issueTitles.includes("章节摘要落地不足"), true);
     assert.equal(issueTitles.includes("势力上下文吸收不足"), true);
     assert.equal(issueTitles.includes("钩子推进不明显"), true);
+    assert.equal(issueTitles.includes("关键物品落地不足"), true);
 
     const fixResult = await draftService.reviewDraft({
       draftId: draft.id,
@@ -303,6 +323,10 @@ test("draft approve 后会写入章节、人物、势力和钩子状态快照", 
     "db/repositories/chapter-draft-repository.js"
   );
   const { CharacterRepository } = await importDist("db/repositories/character-repository.js");
+  const { ItemRepository } = await importDist("db/repositories/item-repository.js");
+  const { CharacterItemRepository } = await importDist(
+    "db/repositories/character-item-repository.js"
+  );
   const { FactionRepository } = await importDist("db/repositories/faction-repository.js");
   const { StoryHookRepository } = await importDist("db/repositories/story-hook-repository.js");
   const { HookChapterLinkRepository } = await importDist(
@@ -315,6 +339,8 @@ test("draft approve 后会写入章节、人物、势力和钩子状态快照", 
     const chapterRepository = new ChapterRepository(database);
     const draftRepository = new ChapterDraftRepository(database);
     const characterRepository = new CharacterRepository(database);
+    const itemRepository = new ItemRepository(database);
+    const characterItemRepository = new CharacterItemRepository(database);
     const factionRepository = new FactionRepository(database);
     const hookRepository = new StoryHookRepository(database);
     const hookLinkRepository = new HookChapterLinkRepository(database);
@@ -358,6 +384,19 @@ test("draft approve 后会写入章节、人物、势力和钩子状态快照", 
       plannedNote: "本章通过玉佩异动埋下疑团",
       status: "planned"
     });
+    const item = itemRepository.create({
+      projectId: project.id,
+      name: "黑玉佩",
+      category: "artifact",
+      description: "会在危险时发热的神秘玉佩"
+    });
+    characterItemRepository.create({
+      projectId: project.id,
+      characterId: character.id,
+      itemId: item.id,
+      ownershipType: "carry",
+      note: "林渡一直贴身携带"
+    });
 
     const draft = draftRepository.create({
       projectId: project.id,
@@ -383,7 +422,9 @@ test("draft approve 后会写入章节、人物、势力和钩子状态快照", 
     assert.equal(stateResult.characterSnapshots.length, 1);
     assert.equal(stateResult.factionSnapshots.length, 1);
     assert.equal(stateResult.hookSnapshots.length, 1);
-    assert.match(stateResult.chapterSnapshots[0].summary ?? "", /角色提及 1 个/);
+    assert.match(stateResult.chapterSnapshots[0].summary ?? "", /物品提及 1 个/);
+    assert.match(stateResult.chapterSnapshots[0].raw_payload ?? "", /"items"/);
+    assert.match(stateResult.chapterSnapshots[0].raw_payload ?? "", /黑玉佩|item_id/);
     assert.equal(stateResult.hookSnapshots[0].progress_status, "advanced");
     assert.match(stateResult.characterSnapshots[0].status_summary ?? "", /林渡/);
   } finally {

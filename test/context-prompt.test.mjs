@@ -32,6 +32,10 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
     const { ChapterStateSnapshotRepository } = await importDist(
       "db/repositories/chapter-state-snapshot-repository.js"
     );
+    const { ItemRepository } = await importDist("db/repositories/item-repository.js");
+    const { CharacterItemRepository } = await importDist(
+      "db/repositories/character-item-repository.js"
+    );
     const { CharacterStateSnapshotRepository } = await importDist(
       "db/repositories/character-state-snapshot-repository.js"
     );
@@ -56,6 +60,8 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
     const hookRepository = new StoryHookRepository(database);
     const hookLinkRepository = new HookChapterLinkRepository(database);
     const chapterStateSnapshotRepository = new ChapterStateSnapshotRepository(database);
+    const itemRepository = new ItemRepository(database);
+    const characterItemRepository = new CharacterItemRepository(database);
     const characterStateSnapshotRepository = new CharacterStateSnapshotRepository(database);
     const factionStateSnapshotRepository = new FactionStateSnapshotRepository(database);
     const hookStateSnapshotRepository = new HookStateSnapshotRepository(database);
@@ -121,6 +127,21 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
       role: "antagonist",
       profession: "刺客",
       goal: "夺取秘卷"
+    });
+    const item = itemRepository.create({
+      projectId: project.id,
+      name: "黑玉佩",
+      category: "artifact",
+      description: "遇雨发热的神秘玉佩",
+      origin: "林渡旧物",
+      status: "sealed"
+    });
+    characterItemRepository.create({
+      projectId: project.id,
+      characterId: hero.id,
+      itemId: item.id,
+      ownershipType: "carry",
+      note: "一直贴身携带"
     });
     loreRepository.create({
       projectId: project.id,
@@ -215,6 +236,8 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
     );
     assert.equal(context.characters.length, 2);
     assert.equal(context.factions.length, 1);
+    assert.equal(context.items.length, 1);
+    assert.equal(context.active_character_items.length, 1);
     assert.equal(context.lore_entries.length, 1);
     assert.equal(context.character_relations.length, 1);
     assert.equal(context.character_faction_relations.length, 1);
@@ -226,6 +249,7 @@ test("ChapterContextBuilder 能聚合章节所需核心上下文", async () => {
     assert.equal(context.latest_faction_states.length, 1);
     assert.equal(context.latest_hook_states.length, 1);
     assert.equal(context.latest_character_states[0].character_id, hero.id);
+    assert.equal(context.active_character_items[0].item_name, "黑玉佩");
   } finally {
     database.close();
   }
@@ -246,6 +270,10 @@ test("PromptService 能输出带模板元数据的 plan / draft prompt", async (
       "db/repositories/chapter-draft-repository.js"
     );
     const { CharacterRepository } = await importDist("db/repositories/character-repository.js");
+    const { ItemRepository } = await importDist("db/repositories/item-repository.js");
+    const { CharacterItemRepository } = await importDist(
+      "db/repositories/character-item-repository.js"
+    );
     const { ChapterStateSnapshotRepository } = await importDist(
       "db/repositories/chapter-state-snapshot-repository.js"
     );
@@ -259,6 +287,8 @@ test("PromptService 能输出带模板元数据的 plan / draft prompt", async (
     const planRepository = new ChapterPlanRepository(database);
     const draftRepository = new ChapterDraftRepository(database);
     const characterRepository = new CharacterRepository(database);
+    const itemRepository = new ItemRepository(database);
+    const characterItemRepository = new CharacterItemRepository(database);
     const chapterStateSnapshotRepository = new ChapterStateSnapshotRepository(database);
     const characterStateSnapshotRepository = new CharacterStateSnapshotRepository(database);
 
@@ -297,6 +327,19 @@ test("PromptService 能输出带模板元数据的 plan / draft prompt", async (
       name: "林渡",
       role: "protagonist",
       goal: "查清真相"
+    });
+    const item = itemRepository.create({
+      projectId: project.id,
+      name: "黑玉佩",
+      category: "artifact",
+      description: "主角随身玉佩"
+    });
+    characterItemRepository.create({
+      projectId: project.id,
+      characterId: hero.id,
+      itemId: item.id,
+      ownershipType: "carry",
+      note: "入宗前一直随身携带"
     });
     const chapterSnapshot = chapterStateSnapshotRepository.create({
       projectId: project.id,
@@ -337,6 +380,9 @@ test("PromptService 能输出带模板元数据的 plan / draft prompt", async (
     assert.match(planBundle.contextText, /最近正式状态/);
     assert.match(planBundle.contextText, /上一章正式状态已经生效/);
     assert.match(planBundle.contextText, /林渡已经察觉异常/);
+    assert.match(planBundle.contextText, /物品上下文/);
+    assert.match(planBundle.contextText, /黑玉佩/);
+    assert.match(draftBundle.prompt, /当前关键物品/);
   } finally {
     database.close();
   }
