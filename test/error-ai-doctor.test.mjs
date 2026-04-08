@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { createWorkspace, runBuiltCli, runBuiltCliResult } from "./helpers.mjs";
+import { createWorkspace, importDist, runBuiltCli, runBuiltCliResult } from "./helpers.mjs";
 
 test("CLI 会为常见失败场景输出更明确的错误类型和 hint", () => {
   const workspace = createWorkspace("hai-novel-error-");
@@ -416,4 +416,17 @@ test("核心命令帮助文本会展示示例", () => {
   const runHelp = runBuiltCli(workspace, ["run", "export", "--help"]);
   assert.match(runHelp, /Examples:/);
   assert.match(runHelp, /novel run export --id 8 --section all --format md/);
+});
+
+test("错误分类器会覆盖新增的导入目标错误和 AI 输出错误", async () => {
+  const { presentCliError } = await importDist("utils/error-presenter.js");
+
+  const importTargetError = presentCliError(
+    new Error("Draft import chapter mismatch: draft=1, file=2.")
+  );
+  assert.equal(importTargetError.code, "IMPORT_TARGET");
+
+  const aiOutputError = presentCliError(new Error("State extraction returned invalid JSON."));
+  assert.equal(aiOutputError.code, "AI_OUTPUT");
+  assert.match(aiOutputError.hint ?? "", /JSON/);
 });

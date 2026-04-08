@@ -190,9 +190,15 @@ export class ChapterService {
       }
 
       if (input.source === "draft") {
-        draftMeta = draftRepository.findLatestByChapterId(input.chapterId);
+        draftMeta =
+          input.draftId !== undefined
+            ? draftRepository.findById(input.draftId)
+            : draftRepository.findLatestByChapterId(input.chapterId);
         if (!draftMeta) {
           throw new Error(`No draft found for chapter ${input.chapterId}.`);
+        }
+        if (draftMeta.chapter_id !== input.chapterId) {
+          throw new Error(`Draft ${draftMeta.id} does not belong to chapter ${input.chapterId}.`);
         }
         draftText = draftMeta.draft_text;
       }

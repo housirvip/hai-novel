@@ -64,49 +64,49 @@ export class ApprovalService {
         draftId: draft.id,
         payload: extractedState.payload
       });
+      const stateExtractRun = runRepository.create({
+        projectId: draft.project_id,
+        chapterId: draft.chapter_id,
+        runType: "state_extract",
+        templateKey: stateTemplateMetadata.key,
+        templateLabel: stateTemplateMetadata.name,
+        templateVersion: stateTemplateMetadata.version,
+        templateSummary: stateTemplateMetadata.summary,
+        promptText: extractedState.prompt,
+        inputContext: draft.draft_text,
+        outputText: extractedState.rawOutput,
+        model: extractedState.model,
+        status: "success"
+      });
+      const approvalRun = runRepository.create({
+        projectId: draft.project_id,
+        chapterId: draft.chapter_id,
+        runType: "draft_review_approve",
+        inputContext: approvedDraft.draft_text,
+        outputText: [
+          reviewReport,
+          "",
+          `state_sync: chapter_snapshot=${stateSyncResult.chapterSnapshot.id}`,
+          `state_sync: characters=${stateSyncResult.characterSnapshotCount}`,
+          `state_sync: factions=${stateSyncResult.factionSnapshotCount}`,
+          `state_sync: hooks=${stateSyncResult.hookSnapshotCount}`,
+          `state_sync: items=${stateSyncResult.itemStateCount}`,
+          `state_extract_run: ${stateExtractRun.id}`
+        ].join("\n"),
+        model: "rule-reviewer-v1",
+        status: "success"
+      });
 
       return {
         approvedDraft,
-        stateSyncResult
+        stateSyncResult,
+        approvalRunId: approvalRun.id
       };
     })();
 
-    runRepository.create({
-      projectId: draft.project_id,
-      chapterId: draft.chapter_id,
-      runType: "state_extract",
-      templateKey: stateTemplateMetadata.key,
-      templateLabel: stateTemplateMetadata.name,
-      templateVersion: stateTemplateMetadata.version,
-      templateSummary: stateTemplateMetadata.summary,
-      promptText: extractedState.prompt,
-      inputContext: draft.draft_text,
-      outputText: extractedState.rawOutput,
-      model: extractedState.model,
-      status: "success"
-    });
-
-    const run = runRepository.create({
-      projectId: draft.project_id,
-      chapterId: draft.chapter_id,
-      runType: "draft_review_approve",
-      inputContext: approvalResult.approvedDraft.draft_text,
-      outputText: [
-        reviewReport,
-        "",
-        `state_sync: chapter_snapshot=${approvalResult.stateSyncResult.chapterSnapshot.id}`,
-        `state_sync: characters=${approvalResult.stateSyncResult.characterSnapshotCount}`,
-        `state_sync: factions=${approvalResult.stateSyncResult.factionSnapshotCount}`,
-        `state_sync: hooks=${approvalResult.stateSyncResult.hookSnapshotCount}`,
-        `state_sync: items=${approvalResult.stateSyncResult.itemStateCount}`
-      ].join("\n"),
-      model: "rule-reviewer-v1",
-      status: "success"
-    });
-
     return {
       approvedDraft: approvalResult.approvedDraft,
-      generationRunId: run.id
+      generationRunId: approvalResult.approvalRunId
     };
   }
 }

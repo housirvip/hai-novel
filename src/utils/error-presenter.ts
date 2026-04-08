@@ -100,11 +100,27 @@ export function presentCliError(error: unknown): PresentedCliError {
     };
   }
 
+  if (message.includes("Plan import target mismatch")) {
+    return {
+      code: "IMPORT_TARGET",
+      message,
+      hint: "确认 Markdown 里的 `entity_id / chapter_id` 与当前命令目标一致，避免把规划回写到别的章节。"
+    };
+  }
+
   if (message.includes("Draft import target mismatch")) {
     return {
       code: "IMPORT_TARGET",
       message,
       hint: "确认 `--draft` 与 Markdown 头部里的 `entity_id` 一致，避免把草稿回写到错误目标。"
+    };
+  }
+
+  if (message.includes("Draft import chapter mismatch")) {
+    return {
+      code: "IMPORT_TARGET",
+      message,
+      hint: "确认这份草稿文件对应的 `chapter_id` 和当前 draft 的所属章节一致，避免串章回写。"
     };
   }
 
@@ -172,7 +188,10 @@ export function presentCliError(error: unknown): PresentedCliError {
     };
   }
 
-  if (message.includes("State extraction did not return a JSON object")) {
+  if (
+    message.includes("State extraction did not return a JSON object") ||
+    message.includes("State extraction returned invalid JSON")
+  ) {
     return {
       code: "AI_OUTPUT",
       message,

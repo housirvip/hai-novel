@@ -83,6 +83,129 @@ test("ChapterService 与 DraftService 可以完成导出和 review 闭环", asyn
   assert.match(finalExport.markdown, /第001章 雨夜入宗/);
 });
 
+test("draft fix 在存在更新草稿时仍会导出并标记当前指定 draft", async () => {
+  const workspace = createWorkspace("hai-novel-fix-export-");
+  const context = await initWorkspace(workspace);
+
+  const { ProjectRepository } = await importDist("db/repositories/project-repository.js");
+  const { ChapterRepository } = await importDist("db/repositories/chapter-repository.js");
+  const { ChapterDraftRepository } = await importDist(
+    "db/repositories/chapter-draft-repository.js"
+  );
+  const { DraftService } = await importDist("app/services/draft-service.js");
+
+  const { database } = await openWorkspaceDatabase(workspace);
+  try {
+    const projectRepository = new ProjectRepository(database);
+    const chapterRepository = new ChapterRepository(database);
+    const draftRepository = new ChapterDraftRepository(database);
+
+    const project = projectRepository.create({
+      name: "修稿导出定位测试",
+      genre: "仙侠"
+    });
+    const chapter = chapterRepository.create({
+      projectId: project.id,
+      title: "第001章 雨夜入宗",
+      summary: "主角在雨夜抵达山门"
+    });
+
+    const oldDraft = draftRepository.create({
+      projectId: project.id,
+      chapterId: chapter.id,
+      draftText: "夜雨很冷，山门很高。",
+      status: "generated"
+    });
+    const newerDraft = draftRepository.create({
+      projectId: project.id,
+      chapterId: chapter.id,
+      draftText: "这是第二版较新的草稿，不应该被旧稿修订导出覆盖。",
+      status: "generated"
+    });
+
+    const draftService = new DraftService(context);
+    const fixResult = await draftService.reviewDraft({
+      draftId: oldDraft.id,
+      action: "fix",
+      notes: "只修旧稿"
+    });
+
+    const exportedMarkdown = readFileSync(fixResult.exportPath, "utf8");
+    assert.match(exportedMarkdown, /只修旧稿/);
+    assert.doesNotMatch(exportedMarkdown, /第二版较新的草稿/);
+
+    const updatedOldDraft = draftRepository.findById(oldDraft.id);
+    const updatedNewerDraft = draftRepository.findById(newerDraft.id);
+    assert.equal(updatedOldDraft?.last_exported_at !== null, true);
+    assert.equal(updatedNewerDraft?.last_exported_at ?? null, null);
+  } finally {
+    database.close();
+  }
+});
+
+test("dropped draft 不会再被默认导出或状态预览选中", async () => {
+  const workspace = createWorkspace("hai-novel-drop-preview-");
+  const context = await initWorkspace(workspace);
+
+  const { ProjectRepository } = await importDist("db/repositories/project-repository.js");
+  const { ChapterRepository } = await importDist("db/repositories/chapter-repository.js");
+  const { ChapterDraftRepository } = await importDist(
+    "db/repositories/chapter-draft-repository.js"
+  );
+  const { ChapterService } = await importDist("app/services/chapter-service.js");
+  const { DraftService } = await importDist("app/services/draft-service.js");
+  const { StateService } = await importDist("app/services/state-service.js");
+
+  const { database } = await openWorkspaceDatabase(workspace);
+  try {
+    const projectRepository = new ProjectRepository(database);
+    const chapterRepository = new ChapterRepository(database);
+    const draftRepository = new ChapterDraftRepository(database);
+
+    const project = projectRepository.create({
+      name: "丢弃草稿过滤测试",
+      genre: "仙侠"
+    });
+    const chapter = chapterRepository.create({
+      projectId: project.id,
+      title: "第001章 雨夜入宗",
+      summary: "主角夜入山门"
+    });
+
+    const usableDraft = draftRepository.create({
+      projectId: project.id,
+      chapterId: chapter.id,
+      draftText: "林渡站在雨夜山门前，衣角尽湿，却还是抬头看向灯火深处。",
+      status: "generated"
+    });
+    const droppedDraft = draftRepository.create({
+      projectId: project.id,
+      chapterId: chapter.id,
+      draftText: "这是被丢弃的草稿，不应该再参与默认导出或预览。",
+      status: "generated"
+    });
+
+    const draftService = new DraftService(context);
+    draftService.dropDraft(droppedDraft.id);
+
+    const chapterService = new ChapterService(context);
+    const exportResult = await chapterService.exportChapter({
+      chapterId: chapter.id,
+      source: "draft"
+    });
+    assert.match(exportResult.markdown, /林渡站在雨夜山门前/);
+    assert.doesNotMatch(exportResult.markdown, /被丢弃的草稿/);
+
+    const stateService = new StateService(context);
+    const previewResult = await stateService.previewChapterState({
+      chapterId: chapter.id
+    });
+    assert.equal(previewResult.sourceDraftId, usableDraft.id);
+  } finally {
+    database.close();
+  }
+});
+
 test("DraftService review 会检查主角、势力、钩子和摘要是否真正落地", async () => {
   const workspace = createWorkspace("hai-novel-review-semantic-");
   const context = await initWorkspace(workspace);
@@ -442,6 +565,68 @@ test("draft approve 后会写入章节、人物、势力和钩子状态快照", 
     assert.equal(stateResult.latestItemStates.length, 1);
     assert.equal(stateResult.latestItemStates[0].item_name, "黑玉佩");
     assert.equal(stateResult.itemStates[0].owner_character_name, "林渡");
+  } finally {
+    database.close();
+  }
+});
+
+test("approve 过程中若生成记录写入失败，不会留下部分已提交的正式状态", async () => {
+  const workspace = createWorkspace("hai-novel-approve-tx-");
+  const context = await initWorkspace(workspace);
+
+  const { ProjectRepository } = await importDist("db/repositories/project-repository.js");
+  const { ChapterRepository } = await importDist("db/repositories/chapter-repository.js");
+  const { ChapterDraftRepository } = await importDist(
+    "db/repositories/chapter-draft-repository.js"
+  );
+  const { ChapterStateSnapshotRepository } = await importDist(
+    "db/repositories/chapter-state-snapshot-repository.js"
+  );
+  const { DraftService } = await importDist("app/services/draft-service.js");
+
+  const { database } = await openWorkspaceDatabase(workspace);
+  try {
+    const projectRepository = new ProjectRepository(database);
+    const chapterRepository = new ChapterRepository(database);
+    const draftRepository = new ChapterDraftRepository(database);
+    const chapterStateSnapshotRepository = new ChapterStateSnapshotRepository(database);
+
+    const project = projectRepository.create({
+      name: "审批事务回滚测试",
+      genre: "仙侠"
+    });
+    const chapter = chapterRepository.create({
+      projectId: project.id,
+      title: "第001章 雨夜入宗",
+      summary: "主角夜入山门"
+    });
+    const draft = draftRepository.create({
+      projectId: project.id,
+      chapterId: chapter.id,
+      draftText: "林渡站在雨里，抬头望向山门，怀里的玉佩忽然发烫。",
+      status: "generated"
+    });
+
+    // 人为破坏生成记录表，模拟审批成功落业务数据、但写 run 失败的场景。
+    database.exec("DROP TABLE generation_runs;");
+
+    const draftService = new DraftService(context);
+    await assert.rejects(
+      draftService.reviewDraft({
+        draftId: draft.id,
+        action: "approve"
+      }),
+      /generation_runs|no such table/i
+    );
+
+    const chapterAfterFailure = chapterRepository.findDetailById(chapter.id);
+    const draftAfterFailure = draftRepository.findById(draft.id);
+    const snapshots = chapterStateSnapshotRepository.findAllByChapterId(chapter.id);
+
+    assert.equal(chapterAfterFailure?.final_text ?? null, null);
+    assert.equal(chapterAfterFailure?.approved_draft_id ?? null, null);
+    assert.equal(draftAfterFailure?.status, "generated");
+    assert.equal(snapshots.length, 0);
   } finally {
     database.close();
   }

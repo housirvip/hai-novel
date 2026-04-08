@@ -1288,6 +1288,8 @@ export interface ExportChapterInput {
   chapterId: number;
   /** 导出来源。 */
   source: ChapterExportSource;
+  /** 可选指定草稿 ID；仅在导出 draft 时使用，便于精确导出某一版草稿。 */
+  draftId?: number;
 }
 
 /**

@@ -66,7 +66,13 @@ export class StateExtractionService {
     rawOutput: string,
     context: ChapterGenerationContext
   ): ExtractedChapterStatePayload {
-    const parsed = JSON.parse(this.unwrapJson(rawOutput)) as Partial<ExtractedChapterStatePayload>;
+    let parsed: Partial<ExtractedChapterStatePayload>;
+    try {
+      parsed = JSON.parse(this.unwrapJson(rawOutput)) as Partial<ExtractedChapterStatePayload>;
+    } catch {
+      throw new Error("State extraction returned invalid JSON.");
+    }
+
     if (!parsed || typeof parsed !== "object") {
       throw new Error("State extraction did not return a JSON object.");
     }

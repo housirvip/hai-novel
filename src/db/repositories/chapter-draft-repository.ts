@@ -65,7 +65,8 @@ export class ChapterDraftRepository {
   }
 
   findLatestByChapterId(chapterId: number): ChapterDraftRecord | undefined {
-    // 导出时优先拿最近的一版草稿，后续有正式 review 流时可再补更细筛选规则。
+    // 默认“最新草稿”不应把已经 dropped 的稿件再拿出来，
+    // 否则导出、预览和后续流程会把作者明确丢弃的内容重新带回主链路。
     const statement = this.database.prepare<[number], ChapterDraftRecord>(
       `SELECT
          id,
@@ -85,6 +86,7 @@ export class ChapterDraftRepository {
          updated_at
        FROM chapter_drafts
        WHERE chapter_id = ?
+         AND status != 'dropped'
        ORDER BY id DESC
        LIMIT 1`
     );

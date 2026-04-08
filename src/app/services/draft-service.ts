@@ -110,7 +110,8 @@ export class DraftService {
       const chapterService = new ChapterService(this.context);
       const exportResult = await chapterService.exportChapter({
         chapterId: input.chapterId,
-        source: "draft"
+        source: "draft",
+        draftId: draft.id
       });
 
       logger.success(
@@ -225,7 +226,8 @@ export class DraftService {
         const chapterService = new ChapterService(this.context);
         const exportResult = await chapterService.exportChapter({
           chapterId: draft.chapter_id,
-          source: "draft"
+          source: "draft",
+          draftId: updatedDraft.id
         });
 
         logger.success(
