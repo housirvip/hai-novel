@@ -501,7 +501,13 @@ test("state show --project 会展示项目级最新物品状态摘要", () => {
   runNovel(workspace, ["draft", "review", "--draft", "1", "--action", "approve"]);
 
   const stateOutput = runNovel(workspace, ["state", "show", "--project", "1"]);
+  assert.match(stateOutput, /latest_character_states/);
+  assert.match(stateOutput, /latest_faction_states/);
+  assert.match(stateOutput, /latest_hook_states/);
   assert.match(stateOutput, /latest_item_states/);
+  assert.match(stateOutput, /青岚宗/);
+  assert.match(stateOutput, /黑玉佩的来历/);
+  assert.match(stateOutput, /林渡/);
   assert.match(stateOutput, /第001章 雨夜入宗/);
   assert.match(stateOutput, /黑玉佩/);
 });

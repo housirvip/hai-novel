@@ -423,12 +423,18 @@ test("draft approve 后会写入章节、人物、势力和钩子状态快照", 
     assert.equal(stateResult.factionSnapshots.length, 1);
     assert.equal(stateResult.hookSnapshots.length, 1);
     assert.equal(stateResult.itemStates.length, 1);
+    assert.equal(stateResult.latestCharacterStates.length, 1);
+    assert.equal(stateResult.latestFactionStates.length, 1);
+    assert.equal(stateResult.latestHookStates.length, 1);
     assert.match(stateResult.chapterSnapshots[0].summary ?? "", /物品提及 1 个/);
     assert.match(stateResult.chapterSnapshots[0].raw_payload ?? "", /"items"/);
     assert.match(stateResult.chapterSnapshots[0].raw_payload ?? "", /黑玉佩|item_id/);
     assert.equal(stateResult.hookSnapshots[0].progress_status, "advanced");
     assert.match(stateResult.characterSnapshots[0].status_summary ?? "", /林渡/);
     assert.equal(stateResult.chapterTitles[chapter.id], "第001章 雨夜入宗");
+    assert.equal(stateResult.latestCharacterStates[0].character_name, "林渡");
+    assert.equal(stateResult.latestFactionStates[0].faction_name, "青岚宗");
+    assert.equal(stateResult.latestHookStates[0].hook_title, "黑玉佩的来历");
     assert.equal(stateResult.itemStates[0].item_name, "黑玉佩");
     assert.equal(stateResult.itemStates[0].chapter_title, "第001章 雨夜入宗");
     assert.equal(stateResult.itemStates[0].item_category, "artifact");

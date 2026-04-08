@@ -1520,14 +1520,89 @@ export interface StateShowResult {
   chapterTitles: Record<number, string>;
   /** 匹配到的角色状态快照。 */
   characterSnapshots: CharacterStateSnapshotRecord[];
+  /** 以“每个角色当前最近一次正式状态”为准聚合出的轻量结果。 */
+  latestCharacterStates: StateShowCharacterState[];
   /** 匹配到的势力状态快照。 */
   factionSnapshots: FactionStateSnapshotRecord[];
+  /** 以“每个势力当前最近一次正式状态”为准聚合出的轻量结果。 */
+  latestFactionStates: StateShowFactionState[];
   /** 匹配到的钩子状态快照。 */
   hookSnapshots: HookStateSnapshotRecord[];
+  /** 以“每个钩子当前最近一次正式状态”为准聚合出的轻量结果。 */
+  latestHookStates: StateShowHookState[];
   /** 从章节快照原始 JSON 中解析出的轻量物品状态结果。 */
   itemStates: StateShowItemState[];
   /** 以“每个物品当前最近一次正式状态”为准聚合出的轻量结果。 */
   latestItemStates: StateShowItemState[];
+}
+
+/**
+ * 状态查看时聚合出的“角色当前最新正式状态”。
+ * 不是独立数据库表，而是从角色状态快照里取每个角色最近一条记录后得到的展示结构。
+ */
+export interface StateShowCharacterState {
+  /** 角色 ID。 */
+  character_id: number;
+  /** 角色名称；查不到时可为空。 */
+  character_name: string | null;
+  /** 来源章节 ID。 */
+  chapter_id: number;
+  /** 来源章节标题；查不到时可为空。 */
+  chapter_title: string | null;
+  /** 关联章节快照 ID。 */
+  chapter_snapshot_id: number;
+  /** 状态摘要。 */
+  status_summary: string | null;
+  /** 当前地点。 */
+  location: string | null;
+  /** 当前目标。 */
+  goal: string | null;
+  /** 外部可见印象。 */
+  public_impression: string | null;
+  /** 内在状态。 */
+  internal_state: string | null;
+}
+
+/**
+ * 状态查看时聚合出的“势力当前最新正式状态”。
+ */
+export interface StateShowFactionState {
+  /** 势力 ID。 */
+  faction_id: number;
+  /** 势力名称；查不到时可为空。 */
+  faction_name: string | null;
+  /** 来源章节 ID。 */
+  chapter_id: number;
+  /** 来源章节标题；查不到时可为空。 */
+  chapter_title: string | null;
+  /** 关联章节快照 ID。 */
+  chapter_snapshot_id: number;
+  /** 状态摘要。 */
+  status_summary: string | null;
+  /** 权力变化。 */
+  power_shift: string | null;
+  /** 对外关系摘要。 */
+  external_relation_summary: string | null;
+}
+
+/**
+ * 状态查看时聚合出的“钩子当前最新正式状态”。
+ */
+export interface StateShowHookState {
+  /** 钩子 ID。 */
+  hook_id: number;
+  /** 钩子标题；查不到时可为空。 */
+  hook_title: string | null;
+  /** 来源章节 ID。 */
+  chapter_id: number;
+  /** 来源章节标题；查不到时可为空。 */
+  chapter_title: string | null;
+  /** 关联章节快照 ID。 */
+  chapter_snapshot_id: number;
+  /** 推进状态。 */
+  progress_status: HookProgressStatus;
+  /** 推进说明。 */
+  progress_note: string | null;
 }
 
 /**

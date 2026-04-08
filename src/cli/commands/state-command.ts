@@ -213,23 +213,71 @@ Examples:
         }))
       );
 
-      if (options.chapter === undefined && result.latestItemStates.length > 0) {
-        printStateSection("latest_item_states");
-        console.table(
-          result.latestItemStates.map((itemState) => ({
-            chapter_id: itemState.chapter_id,
-            chapter_title: itemState.chapter_title ?? "",
-            chapter_snapshot_id: itemState.chapter_snapshot_id,
-            item_id: itemState.item_id,
-            item_name: itemState.item_name ?? "",
-            item_category: itemState.item_category ?? "",
-            item_rarity: itemState.item_rarity ?? "",
-            item_static_status: itemState.item_static_status ?? "",
-            owner_character_name: itemState.owner_character_name ?? "",
-            status_summary: itemState.status_summary ?? "",
-            location: itemState.location ?? ""
-          }))
-        );
+      if (options.chapter === undefined) {
+        if (result.latestCharacterStates.length > 0) {
+          printStateSection("latest_character_states");
+          console.table(
+            result.latestCharacterStates.map((characterState) => ({
+              character_id: characterState.character_id,
+              character_name: characterState.character_name ?? "",
+              chapter_id: characterState.chapter_id,
+              chapter_title: characterState.chapter_title ?? "",
+              chapter_snapshot_id: characterState.chapter_snapshot_id,
+              status_summary: characterState.status_summary ?? "",
+              location: characterState.location ?? "",
+              goal: characterState.goal ?? ""
+            }))
+          );
+        }
+
+        if (result.latestFactionStates.length > 0) {
+          printStateSection("latest_faction_states");
+          console.table(
+            result.latestFactionStates.map((factionState) => ({
+              faction_id: factionState.faction_id,
+              faction_name: factionState.faction_name ?? "",
+              chapter_id: factionState.chapter_id,
+              chapter_title: factionState.chapter_title ?? "",
+              chapter_snapshot_id: factionState.chapter_snapshot_id,
+              status_summary: factionState.status_summary ?? "",
+              power_shift: factionState.power_shift ?? ""
+            }))
+          );
+        }
+
+        if (result.latestHookStates.length > 0) {
+          printStateSection("latest_hook_states");
+          console.table(
+            result.latestHookStates.map((hookState) => ({
+              hook_id: hookState.hook_id,
+              hook_title: hookState.hook_title ?? "",
+              chapter_id: hookState.chapter_id,
+              chapter_title: hookState.chapter_title ?? "",
+              chapter_snapshot_id: hookState.chapter_snapshot_id,
+              progress_status: hookState.progress_status,
+              progress_note: hookState.progress_note ?? ""
+            }))
+          );
+        }
+
+        if (result.latestItemStates.length > 0) {
+          printStateSection("latest_item_states");
+          console.table(
+            result.latestItemStates.map((itemState) => ({
+              chapter_id: itemState.chapter_id,
+              chapter_title: itemState.chapter_title ?? "",
+              chapter_snapshot_id: itemState.chapter_snapshot_id,
+              item_id: itemState.item_id,
+              item_name: itemState.item_name ?? "",
+              item_category: itemState.item_category ?? "",
+              item_rarity: itemState.item_rarity ?? "",
+              item_static_status: itemState.item_static_status ?? "",
+              owner_character_name: itemState.owner_character_name ?? "",
+              status_summary: itemState.status_summary ?? "",
+              location: itemState.location ?? ""
+            }))
+          );
+        }
       }
 
       if (options.chapter !== undefined) {

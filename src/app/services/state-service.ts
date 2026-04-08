@@ -4,9 +4,11 @@ import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
 import { ChapterStateSnapshotRepository } from "../../db/repositories/chapter-state-snapshot-repository.js";
 import { CharacterRepository } from "../../db/repositories/character-repository.js";
 import { CharacterStateSnapshotRepository } from "../../db/repositories/character-state-snapshot-repository.js";
+import { FactionRepository } from "../../db/repositories/faction-repository.js";
 import { FactionStateSnapshotRepository } from "../../db/repositories/faction-state-snapshot-repository.js";
 import { HookStateSnapshotRepository } from "../../db/repositories/hook-state-snapshot-repository.js";
 import { ItemRepository } from "../../db/repositories/item-repository.js";
+import { StoryHookRepository } from "../../db/repositories/story-hook-repository.js";
 import type {
   ApproveSyncChapterInput,
   ApproveSyncChapterResult,
@@ -14,6 +16,9 @@ import type {
   ChapterStateSnapshotRecord,
   PreviewChapterStateInput,
   ShowStateInput,
+  StateShowCharacterState,
+  StateShowFactionState,
+  StateShowHookState,
   StateShowItemState,
   StateShowResult
 } from "../../domain/types/index.js";
@@ -160,7 +165,9 @@ export class StateService {
       const chapterRepository = new ChapterRepository(database);
       const characterRepository = new CharacterRepository(database);
       const characterSnapshotRepository = new CharacterStateSnapshotRepository(database);
+      const factionRepository = new FactionRepository(database);
       const factionSnapshotRepository = new FactionStateSnapshotRepository(database);
+      const hookRepository = new StoryHookRepository(database);
       const hookSnapshotRepository = new HookStateSnapshotRepository(database);
       const itemRepository = new ItemRepository(database);
 
@@ -189,18 +196,36 @@ export class StateService {
         new Map(items.map((item) => [item.id, item])),
         new Map(characters.map((character) => [character.id, character.name]))
       );
+      const latestCharacterStates = this.extractLatestCharacterStates(
+        characterSnapshots,
+        chapterTitles,
+        new Map(characters.map((character) => [character.id, character.name]))
+      );
+      const latestFactionStates = this.extractLatestFactionStates(
+        factionSnapshots,
+        chapterTitles,
+        new Map(factionRepository.findAllByProjectId(input.projectId).map((faction) => [faction.id, faction.name]))
+      );
+      const latestHookStates = this.extractLatestHookStates(
+        hookSnapshots,
+        chapterTitles,
+        new Map(hookRepository.findAllByProjectId(input.projectId).map((hook) => [hook.id, hook.title]))
+      );
       const latestItemStates = this.extractLatestItemStates(itemStates);
 
       logger.success(
-        `state:show chapter_snapshots=${chapterSnapshots.length} character_snapshots=${characterSnapshots.length} faction_snapshots=${factionSnapshots.length} hook_snapshots=${hookSnapshots.length} item_states=${itemStates.length} latest_item_states=${latestItemStates.length}`
+        `state:show chapter_snapshots=${chapterSnapshots.length} character_snapshots=${characterSnapshots.length} faction_snapshots=${factionSnapshots.length} hook_snapshots=${hookSnapshots.length} item_states=${itemStates.length} latest_character_states=${latestCharacterStates.length} latest_faction_states=${latestFactionStates.length} latest_hook_states=${latestHookStates.length} latest_item_states=${latestItemStates.length}`
       );
 
       return {
         chapterSnapshots,
         chapterTitles,
         characterSnapshots,
+        latestCharacterStates,
         factionSnapshots,
+        latestFactionStates,
         hookSnapshots,
+        latestHookStates,
         itemStates,
         latestItemStates
       };
@@ -303,6 +328,99 @@ export class StateService {
     }
 
     return Array.from(latestByItemId.values()).sort((left, right) => left.item_id - right.item_id);
+  }
+
+  /**
+   * 快照仓储已经按 `id DESC` 返回，因此遍历时首次命中的记录就是角色当前最新正式状态。
+   */
+  private extractLatestCharacterStates(
+    characterSnapshots: ReturnType<CharacterStateSnapshotRepository["findAllByProjectId"]>,
+    chapterTitles: Record<number, string>,
+    characterNames: Map<number, string>
+  ): StateShowCharacterState[] {
+    const latestByCharacterId = new Map<number, StateShowCharacterState>();
+
+    for (const snapshot of characterSnapshots) {
+      if (latestByCharacterId.has(snapshot.character_id)) {
+        continue;
+      }
+
+      latestByCharacterId.set(snapshot.character_id, {
+        character_id: snapshot.character_id,
+        character_name: characterNames.get(snapshot.character_id) ?? null,
+        chapter_id: snapshot.chapter_id,
+        chapter_title: chapterTitles[snapshot.chapter_id] ?? null,
+        chapter_snapshot_id: snapshot.chapter_snapshot_id,
+        status_summary: snapshot.status_summary,
+        location: snapshot.location,
+        goal: snapshot.goal,
+        public_impression: snapshot.public_impression,
+        internal_state: snapshot.internal_state
+      });
+    }
+
+    return Array.from(latestByCharacterId.values()).sort(
+      (left, right) => left.character_id - right.character_id
+    );
+  }
+
+  /**
+   * 势力和人物一样，项目级展示只关心“当前最近一次正式状态”，因此按势力 ID 去重即可。
+   */
+  private extractLatestFactionStates(
+    factionSnapshots: ReturnType<FactionStateSnapshotRepository["findAllByProjectId"]>,
+    chapterTitles: Record<number, string>,
+    factionNames: Map<number, string>
+  ): StateShowFactionState[] {
+    const latestByFactionId = new Map<number, StateShowFactionState>();
+
+    for (const snapshot of factionSnapshots) {
+      if (latestByFactionId.has(snapshot.faction_id)) {
+        continue;
+      }
+
+      latestByFactionId.set(snapshot.faction_id, {
+        faction_id: snapshot.faction_id,
+        faction_name: factionNames.get(snapshot.faction_id) ?? null,
+        chapter_id: snapshot.chapter_id,
+        chapter_title: chapterTitles[snapshot.chapter_id] ?? null,
+        chapter_snapshot_id: snapshot.chapter_snapshot_id,
+        status_summary: snapshot.status_summary,
+        power_shift: snapshot.power_shift,
+        external_relation_summary: snapshot.external_relation_summary
+      });
+    }
+
+    return Array.from(latestByFactionId.values()).sort((left, right) => left.faction_id - right.faction_id);
+  }
+
+  /**
+   * 钩子项目级面板展示的是“目前推进到哪里”，因此同样取每个钩子的最新正式状态。
+   */
+  private extractLatestHookStates(
+    hookSnapshots: ReturnType<HookStateSnapshotRepository["findAllByProjectId"]>,
+    chapterTitles: Record<number, string>,
+    hookTitles: Map<number, string>
+  ): StateShowHookState[] {
+    const latestByHookId = new Map<number, StateShowHookState>();
+
+    for (const snapshot of hookSnapshots) {
+      if (latestByHookId.has(snapshot.hook_id)) {
+        continue;
+      }
+
+      latestByHookId.set(snapshot.hook_id, {
+        hook_id: snapshot.hook_id,
+        hook_title: hookTitles.get(snapshot.hook_id) ?? null,
+        chapter_id: snapshot.chapter_id,
+        chapter_title: chapterTitles[snapshot.chapter_id] ?? null,
+        chapter_snapshot_id: snapshot.chapter_snapshot_id,
+        progress_status: snapshot.progress_status,
+        progress_note: snapshot.progress_note
+      });
+    }
+
+    return Array.from(latestByHookId.values()).sort((left, right) => left.hook_id - right.hook_id);
   }
 
   // 状态查看不应因为历史脏数据而整体失败，因此这里对 raw_payload 使用宽松解析。
