@@ -189,6 +189,7 @@ export OPENAI_API_KEY="your_key"
 - 上下文控长阈值：`NOVEL_CONTEXT_MAX_*`
 - 相关性打分权重：`NOVEL_RELEVANCE_*`
 - AI 温度与输出预算：`NOVEL_AI_*`
+- `ai doctor` 联调输出上限：`NOVEL_AI_DOCTOR_*`
 
 随后可用以下命令检查状态：
 

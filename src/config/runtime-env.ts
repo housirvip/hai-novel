@@ -204,6 +204,30 @@ export const runtimeEnv = {
     )
   },
   ai: {
+    doctor: {
+      /** 连通性测试只需要一句短回复，预算越小越能快速暴露 provider 是否可用。 */
+      testMaxOutputTokens: readIntegerEnv("NOVEL_AI_DOCTOR_TEST_MAX_OUTPUT_TOKENS", 60, {
+        min: 1
+      }),
+      /** doctor 的 plan 联调只验证链路是否可跑通，不追求完整规划正文。 */
+      chapterPlanMaxOutputTokens: readIntegerEnv(
+        "NOVEL_AI_DOCTOR_CHAPTER_PLAN_MAX_OUTPUT_TOKENS",
+        600,
+        { min: 1 }
+      ),
+      /** doctor 的 draft-write 联调只需要确认草稿生成链路可用，因此预算低于正式写稿。 */
+      draftWriteMaxOutputTokens: readIntegerEnv(
+        "NOVEL_AI_DOCTOR_DRAFT_WRITE_MAX_OUTPUT_TOKENS",
+        800,
+        { min: 1 }
+      ),
+      /** doctor 的 draft-fix 联调需要容纳一定改写空间，所以略高于 draft-write。 */
+      draftFixMaxOutputTokens: readIntegerEnv(
+        "NOVEL_AI_DOCTOR_DRAFT_FIX_MAX_OUTPUT_TOKENS",
+        900,
+        { min: 1 }
+      )
+    },
     chapterPlan: {
       /** 章规划偏创造性，但仍需要结构稳定，因此默认温度中等。 */
       temperature: readFloatEnv("NOVEL_AI_CHAPTER_PLAN_TEMPERATURE", 0.7, { min: 0 }),

@@ -1,4 +1,5 @@
 import { createAIProvider, resolveAISettings } from "../../ai/provider-factory.js";
+import { runtimeEnv } from "../../config/runtime-env.js";
 import { PromptService } from "./prompt-service.js";
 import type { RuntimeContext } from "./context-service.js";
 
@@ -414,7 +415,8 @@ export class AIDoctorService {
         systemPrompt: "你是中文助手，请用一句话回复。",
         prompt: input?.prompt ?? "请回复：连通性测试通过。",
         contextText: input?.contextText ?? "",
-        maxOutputTokens: 60
+        // 连通性测试只验证 provider 是否能正常返回，没必要消耗过多输出预算。
+        maxOutputTokens: runtimeEnv.ai.doctor.testMaxOutputTokens
       };
     }
 
@@ -437,7 +439,8 @@ export class AIDoctorService {
         systemPrompt: bundle.systemPrompt,
         prompt: bundle.prompt,
         contextText: bundle.contextText,
-        maxOutputTokens: 600
+        // doctor 的 plan 任务只做联调，不追求产出完整章节规划，所以预算低于正式生成。
+        maxOutputTokens: runtimeEnv.ai.doctor.chapterPlanMaxOutputTokens
       };
     }
 
@@ -459,7 +462,8 @@ export class AIDoctorService {
         systemPrompt: bundle.systemPrompt,
         prompt: bundle.prompt,
         contextText: bundle.contextText,
-        maxOutputTokens: 800
+        // doctor 的写稿联调只需确认整条 prompt 链路通畅，预算保持中等即可。
+        maxOutputTokens: runtimeEnv.ai.doctor.draftWriteMaxOutputTokens
       };
     }
 
@@ -476,7 +480,8 @@ export class AIDoctorService {
       systemPrompt: bundle.systemPrompt,
       prompt: bundle.prompt,
       contextText: bundle.contextText,
-      maxOutputTokens: 900
+      // 修稿联调通常比普通写稿更容易需要补充改写空间，因此给略高一点的上限。
+      maxOutputTokens: runtimeEnv.ai.doctor.draftFixMaxOutputTokens
     };
   }
 
