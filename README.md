@@ -16,6 +16,306 @@
 - 生成历史、prompt 查看、AI 状态检查
 - 生成历史导出为 Markdown / JSON
 
+## 系统目标
+
+这个项目的目标不是让 AI 一次性“写完整本书”，而是把小说创作拆成一条可管理、可审阅、可回写、可追踪的生产线。
+
+- 用结构化方式管理人物、势力、关系、设定、钩子、物品和大纲
+- 先写章节 `plan`，再基于 `plan` 生成 `draft`
+- 允许作者直接修改导出的 Markdown，再回写数据库
+- 只有 `approve` 才会把草稿转成 `final`，并写入正式状态
+- 让每次 AI 生成、每次状态抽取、每次正式落库都可追溯
+
+## 架构概览
+
+项目采用 `CLI -> Application Service -> Repository / AI Provider -> SQLite` 的分层结构。
+
+```mermaid
+flowchart LR
+  CLI["CLI Commands\nsrc/cli/commands"] --> APP["Application Services\nsrc/app/services"]
+  APP --> AI["AI Providers & Prompts\nsrc/ai"]
+  APP --> REPO["Repositories\nsrc/db/repositories"]
+  REPO --> DB["SQLite\nnovel.db"]
+  APP --> FS["Markdown Exports\nexports/*.md"]
+  FS --> APP
+  APP --> RUN["generation_runs\n生成历史"]
+  APP --> SNAP["chapter_state_snapshots\n及正式状态快照"]
+```
+
+这套分层重点是：
+
+- CLI 只负责参数解析、命令路由和结果展示
+- Service 负责业务规则、状态推进、模块协作和事务边界
+- Repository 负责表级读写，不承担复杂业务决策
+- AI 层负责 prompt 构造、provider 适配和响应解析
+- Markdown 导出与回写作为作者可见层，和数据库形成双向闭环
+
+## 模块设计
+
+### 1. CLI 层：命令入口
+
+目录：`src/cli/commands`
+
+职责：
+
+- 接收命令行参数
+- 转换为 Service 层输入
+- 输出表格、摘要、日志和错误提示
+
+主要命令分组：
+
+- `project / outline / volume`：项目与大纲主链路
+- `character / faction / relation / lore / item / hook`：设定与关系维护
+- `chapter / plan / draft`：章节创作主链路
+- `state`：状态预览、正式状态查看、补同步
+- `run / prompt / ai`：生成历史、提示词调试、AI 联调诊断
+
+### 2. 应用服务层：业务编排核心
+
+目录：`src/app/services`
+
+职责：
+
+- 组合 Repository、AI Provider 和文件导出逻辑
+- 处理章节状态推进
+- 区分“中间态写入”和“正式状态写入”
+- 统一事务一致性与错误语义
+
+核心服务：
+
+- `ProjectService / OutlineService / PlanService`
+  - 管理项目、总纲、分卷、章节规划与规划回写
+- `CharacterService / FactionService / RelationService / LoreService / ItemService / HookService`
+  - 管理人物、势力、关系、设定、物品、钩子及其关联
+- `ChapterService`
+  - 创建章节、生成 `plan`、导出 `plan / draft / final`
+- `DraftService`
+  - 负责 `draft write / review / drop / import`
+- `ChapterContextBuilder`
+  - 聚合一章写作所需的上下文，包括人物、势力、物品、钩子和大纲链路
+- `ApprovalService`
+  - 在 `approve` 时统一处理草稿批准、final 同步、正式状态抽取、正式状态写入、生成记录落库
+- `MarkdownSyncService`
+  - 负责 Markdown frontmatter 解析、section 提取、版本校验和回写
+- `StateExtractionService / StateUpdateService / StateService`
+  - 负责 AI 提取正式状态、写入快照、展示正式状态和预览状态
+- `RunService / PromptService / AIDoctorService`
+  - 负责生成历史查看导出、prompt 预览、provider 诊断
+
+### 3. AI 层：模型接入与提示词
+
+目录：`src/ai`
+
+职责：
+
+- 定义统一 provider 接口
+- 适配 `mock / openai / anthropic / custom`
+- 按任务组织 prompt 模板
+- 统一解析 JSON / 非 JSON 响应，输出明确错误
+
+当前主要 AI 任务：
+
+- `chapter-plan`：生成章节规划
+- `draft-write`：基于上下文与 plan 生成草稿
+- `draft-fix`：基于 review 问题修订草稿
+- `state-extract`：从正式文稿中提取章节正式状态
+
+### 4. 持久化层：SQLite 与 Repository
+
+目录：`src/db`
+
+职责：
+
+- 管理 migration
+- 定义 Repository 读写边界
+- 把结构化数据持久化到 `novel.db`
+
+特点：
+
+- 全部主键采用自增数字 `id`
+- Repository 尽量保持轻量，避免把复杂业务逻辑塞进 SQL
+- 创作中间态和正式状态分离，方便回溯和补同步
+
+### 5. 领域类型层：统一数据模型
+
+目录：`src/domain/types`
+
+职责：
+
+- 定义 CLI、Service、Repository 共享的数据结构
+- 为输入输出、数据库记录、状态快照提供统一类型约束
+- 用中文注释约束字段语义，减少维护歧义
+
+## 核心数据实体
+
+可以把系统数据分成 4 组。
+
+### 1. 设定层
+
+- `projects`：小说项目
+- `outlines`：总纲、分卷与大纲节点
+- `characters`：人物
+- `factions`：势力
+- `character_relations`：人物与人物关系
+- `character_faction_relations`：人物与势力关系
+- `lore_entries`：世界观、职业体系、规则设定
+- `items`：物品
+- `character_items`：人物持有物品关系
+- `story_hooks`：全局钩子
+- `hook_chapter_links`：钩子在各章节中的埋设 / 推进 / 回收记录
+
+### 2. 创作中间态
+
+- `chapters`：章节主记录，包含章节状态、`final_text`、`approved_draft_id`
+- `chapter_plans`：章节规划，可导出 Markdown，可回写
+- `chapter_drafts`：章节草稿，可导出 Markdown，可回写，可 `drop`
+
+### 3. 正式状态层
+
+- `chapter_state_snapshots`：章节正式状态快照
+- `character_state_snapshots`：人物正式状态快照
+- `faction_state_snapshots`：势力正式状态快照
+- `hook_state_snapshots`：钩子正式状态快照
+
+补充说明：
+
+- 物品正式状态当前采用轻量方案，先存放在 `chapter_state_snapshots.raw_payload`
+- 这样能先满足审批后回看物品状态的需求，避免过早引入更重的独立物品状态表
+
+### 4. 可追溯层
+
+- `generation_runs`：记录每次生成、修订、检查、状态抽取的输入输出摘要与模板元数据
+
+它主要用于：
+
+- 回看某次 plan / draft / fix / state extract 是如何生成的
+- 导出为 Markdown / JSON 做审阅或归档
+- 在 prompt 调优时定位某次生成用了哪一版模板
+
+## 核心数据流转
+
+### 1. 章节创作主链路
+
+```mermaid
+flowchart TD
+  A["chapter create"] --> B["章节状态: created"]
+  B --> C["chapter plan"]
+  C --> D["生成 chapter_plans"]
+  D --> E["导出 chapter-xxx-plan.md"]
+  E --> F["章节状态: planning"]
+  F --> G["draft write"]
+  G --> H["生成 chapter_drafts"]
+  H --> I["导出 chapter-xxx-draft.md"]
+  I --> J["章节状态: drafting"]
+  J --> K["draft review check / fix"]
+  K --> L["章节状态: reviewing"]
+  L --> M["draft review approve"]
+  M --> N["chapters.final_text + approved_draft_id"]
+  N --> O["导出 chapter-xxx-final.md"]
+  O --> P["状态抽取 + 正式快照落库"]
+  P --> Q["章节状态: done"]
+```
+
+### 2. Markdown 回写链路
+
+```mermaid
+flowchart TD
+  A["导出 plan / draft Markdown"] --> B["作者手工修改"]
+  B --> C["plan import / draft import"]
+  C --> D["校验 frontmatter"]
+  D --> E["校验 entity_type / id / source_version"]
+  E --> F["更新 chapter_plans / chapter_drafts"]
+  F --> G["source_version +1"]
+```
+
+设计原则：
+
+- Markdown 是作者可直接编辑的工作界面
+- 数据库是系统的结构化事实来源
+- 通过 `source_version` 检测版本冲突，避免旧文件覆盖新内容
+- `--force` 只在作者明确知道风险时使用
+
+### 3. 正式状态同步链路
+
+```mermaid
+flowchart TD
+  A["draft review approve"] --> B["读取当前 draft"]
+  B --> C["AI 提取章节正式状态"]
+  C --> D["写 chapter_state_snapshots"]
+  D --> E["拆分写入 character / faction / hook 快照"]
+  E --> F["更新 chapters.final_text"]
+  F --> G["记录 generation_runs"]
+```
+
+这里最重要的约束是：
+
+- `plan` 完成后不会更新世界正式状态
+- `draft` 生成后不会更新世界正式状态
+- `check / fix` 不会更新世界正式状态
+- 只有 `approve` 才会更新正式状态快照
+- `state chapter-preview` 只做预览，不会落正式库
+
+## 数据状态与写入原则
+
+### 1. 章节状态
+
+章节会在主流程里自动推进：
+
+- `created`：章节刚创建
+- `planning`：章节规划已生成并导出
+- `drafting`：草稿已生成
+- `reviewing`：已经执行过 `check` 或 `fix`
+- `done`：草稿已批准，正式文稿与正式状态都已落库
+
+### 2. Plan 状态
+
+`chapter_plans.status` 当前采用轻量策略：
+
+- `active`：当前有效规划
+- 旧规划在新规划生成后会归档，不再作为默认写稿输入
+
+### 3. Draft 状态
+
+`chapter_drafts.status` 体现的是稿件生命周期：
+
+- `generated`：AI 生成或修订后的当前稿件
+- `checked`：执行过 `check`，记录了 review 报告
+- `approved`：已转正为正式文稿
+- `dropped`：作者明确丢弃，不再参与默认导出和默认状态预览
+
+### 4. Hook 状态与章节内推进状态
+
+系统里和钩子相关的状态分成两层：
+
+- `story_hooks.status`
+  - 表示钩子全局层面的生命周期，例如 `pending / active / resolved / closed`
+- `hook_chapter_links.status`
+  - 表示钩子在某一章里的执行状态，例如 `planned / done / skipped`
+
+这也是为什么项目里仍然保留 hook 语义的 `planned`，但章节状态已经改成 `created`。
+
+### 5. 正式状态快照
+
+正式状态快照是“按章节批准结果沉淀”的，不是实时覆盖式状态表。
+
+优点：
+
+- 可以回看某章批准后，人物 / 势力 / 钩子 / 物品在当时被认定成什么状态
+- 后续需要补同步时，可以按章节重建，而不是直接覆盖全局现状
+- 便于做“截至第 N 章”的项目状态查看
+
+## 模块协作关系
+
+如果把一次完整创作看成协作链路，大致是：
+
+1. 设定模块先沉淀世界基础事实：人物、势力、关系、设定、物品、钩子。
+2. 大纲模块决定全书、分卷、章节的结构目标。
+3. `ChapterContextBuilder` 把设定层和大纲层聚合成“本章写作上下文”。
+4. `ChapterService` 和 `DraftService` 调用 AI 生成 `plan / draft / fix`。
+5. `MarkdownSyncService` 让作者可以脱离 CLI，直接在 Markdown 中编辑。
+6. `ApprovalService` 在最后一跳把 draft 转成 final，并驱动正式状态同步。
+7. `RunService` 和 `StateService` 提供可追溯与可观测能力。
+
 ## 环境要求
 
 - Node.js `>= 20`
@@ -358,22 +658,25 @@ npm run dev -- run export --id 3 --section meta --format json --output exports/r
 
 ```text
 src/
-  ai/
-  app/
-  cli/
-  db/
-  domain/
-  utils/
+  ai/                  # provider 适配、prompt 模板、响应解析
+  app/services/        # 业务编排、状态推进、审批与回写
+  cli/commands/        # CLI 命令入口
+  config/              # dotenv 与运行期环境变量解析
+  db/migrations/       # SQLite schema 迁移
+  db/repositories/     # 数据读写封装
+  domain/types/        # 统一领域类型与中文注释
+  utils/               # 日志、路径、错误展示等通用能力
 docs/
   v1-plan.md
   v1-task-list.md
+  v2-task-list.md
 test/
-  cli-flow.test.mjs
+  *.test.mjs           # CLI、服务、迁移、错误语义等测试
 ```
 
 ## 当前状态
 
-当前已经可以跑通从项目创建到章节 `final` 导出的主流程。
+当前已经可以跑通从项目创建、世界设定录入、章节 `plan / draft` 生成、Markdown 回写，到 `approve` 后正式状态落库与 `final` 导出的主流程。
 
 仍在继续完善的方向：
 
