@@ -14,6 +14,8 @@ import { logger } from "../../utils/logger.js";
 import { ensureDir } from "../../utils/paths.js";
 import { relativeToAppRoot, type RuntimeContext } from "./context-service.js";
 
+import { runtimeEnv } from "../../config/runtime-env.js";
+
 export class RunService {
   constructor(private readonly context: RuntimeContext) {}
 
@@ -199,7 +201,10 @@ export class RunService {
   }
 }
 
-export function shortenRunText(value: string | null, maxLength = 120): string {
+export function shortenRunText(
+  value: string | null,
+  maxLength = runtimeEnv.display.runTextPreviewLength
+): string {
   if (!value) {
     return "";
   }

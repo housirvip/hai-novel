@@ -186,6 +186,7 @@ export OPENAI_API_KEY="your_key"
 
 除了 Provider 相关配置外，下面这些参数也可以放进 `.env` 调优：
 
+- 显示与日志截断长度：`NOVEL_DISPLAY_*`
 - 上下文控长阈值：`NOVEL_CONTEXT_MAX_*`
 - 相关性打分权重：`NOVEL_RELEVANCE_*`
 - AI 温度与输出预算：`NOVEL_AI_*`

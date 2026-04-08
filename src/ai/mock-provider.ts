@@ -1,4 +1,5 @@
 import type { AIProvider, GenerateTextInput, GenerateTextResult } from "./provider.js";
+import { runtimeEnv } from "../config/runtime-env.js";
 
 export class MockProvider implements AIProvider {
   async generateText(input: GenerateTextInput): Promise<GenerateTextResult> {
@@ -116,6 +117,9 @@ export class MockProvider implements AIProvider {
       .map((sentence) => sentence.trim())
       .filter(Boolean);
     const matched = sentences.find((sentence) => sentence.includes(keyword));
-    return matched ? matched.slice(0, 120) : `本章正式文稿提到了“${keyword}”。`;
+    // 这里是 mock 场景下的人类可读摘要，不影响正式状态结构，因此只控制展示长度即可。
+    return matched
+      ? matched.slice(0, runtimeEnv.display.mockMentionSummaryLength)
+      : `本章正式文稿提到了“${keyword}”。`;
   }
 }

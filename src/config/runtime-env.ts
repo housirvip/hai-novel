@@ -80,6 +80,26 @@ function readFloatEnv(
  * 这里聚合“prompt 控长阈值”“相关性打分权重”“AI 调优参数”，避免魔法数字散落各处。
  */
 export const runtimeEnv = {
+  display: {
+    /** run history 等列表里展示生成结果摘要时的默认截断长度。 */
+    runTextPreviewLength: readIntegerEnv("NOVEL_DISPLAY_RUN_TEXT_PREVIEW_LENGTH", 120, {
+      min: 1
+    }),
+    /** doctor 联网失败时，最多展示多少字符的响应体，避免错误输出刷屏。 */
+    networkErrorPreviewLength: readIntegerEnv(
+      "NOVEL_DISPLAY_NETWORK_ERROR_PREVIEW_LENGTH",
+      200,
+      { min: 1 }
+    ),
+    /** doctor 生成成功时，最多回显多少字符的生成结果摘要。 */
+    generationPreviewLength: readIntegerEnv("NOVEL_DISPLAY_GENERATION_PREVIEW_LENGTH", 120, {
+      min: 1
+    }),
+    /** mock 状态提取里，从正式文稿截取命中句子时的摘要长度。 */
+    mockMentionSummaryLength: readIntegerEnv("NOVEL_DISPLAY_MOCK_MENTION_SUMMARY_LENGTH", 120, {
+      min: 1
+    })
+  },
   context: {
     /** prompt 中最多保留多少个人物条目。 */
     maxCharacterItems: readIntegerEnv("NOVEL_CONTEXT_MAX_CHARACTER_ITEMS", 8, { min: 1 }),

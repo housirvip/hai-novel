@@ -311,7 +311,10 @@ export class AIDoctorService {
         configMessage: input.configDiagnosis.configMessage,
         networkChecked: true,
         networkOk: false,
-        networkMessage: `OpenAI 网络检查失败：${responseText.slice(0, 200)}`,
+        networkMessage: `OpenAI 网络检查失败：${responseText.slice(
+          0,
+          runtimeEnv.display.networkErrorPreviewLength
+        )}`,
         networkErrorType,
         httpStatus: response.status,
         generationChecked: false,
@@ -375,7 +378,10 @@ export class AIDoctorService {
 
       return {
         generationOk: true,
-        generationMessage: `${provider} ${payload.taskType} 生成测试通过：${result.text.slice(0, 120)}`,
+        generationMessage: `${provider} ${payload.taskType} 生成测试通过：${result.text.slice(
+          0,
+          runtimeEnv.display.generationPreviewLength
+        )}`,
         generationErrorType: "none",
         generationRequestId: result.requestId
       };
