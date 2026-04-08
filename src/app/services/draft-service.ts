@@ -28,11 +28,11 @@ import type {
   WriteDraftInput
 } from "../../domain/types/index.js";
 import { logger } from "../../utils/logger.js";
+import { ApprovalService } from "./approval-service.js";
 import { ChapterContextBuilder } from "./chapter-context-builder.js";
 import { relativeToAppRoot, type RuntimeContext } from "./context-service.js";
 import { ChapterService } from "./chapter-service.js";
 import { MarkdownSyncService } from "./markdown-sync-service.js";
-import { StateSyncService } from "./state-sync-service.js";
 
 export class DraftService {
   constructor(private readonly context: RuntimeContext) {}
@@ -243,69 +243,14 @@ export class DraftService {
 
       logger.progress("draft:review 1/3 读取草稿并生成检查报告");
       const issues = this.reviewIssues(chapterContext, draft.draft_text);
-      const reviewReport = this.serializeIssues(issues);
-      const stateSyncService = new StateSyncService(this.context, database);
-      const stateTemplateMetadata = getPromptTemplateMetadata("state-extract");
-      const extractedState = await stateSyncService.extractApprovedChapterState({
-        projectId: draft.project_id,
-        chapterId: draft.chapter_id,
-        draftId: draft.id,
-        finalText: draft.draft_text
-      });
+      const approvalService = new ApprovalService(this.context, database);
 
       logger.progress("draft:review 2/3 批准草稿并同步 final");
-      const approvalResult = database.transaction(() => {
-        const approvedDraft = draftRepository.updateReview(input.draftId, {
-          status: "approved",
-          reviewNotes: input.notes ?? draft.review_notes,
-          reviewReport
-        });
-        chapterRepository.approveDraft(draft.chapter_id, draft.id, approvedDraft.draft_text);
-        const stateSyncResult = stateSyncService.applyApprovedChapterState({
-          projectId: draft.project_id,
-          chapterId: draft.chapter_id,
-          draftId: draft.id,
-          payload: extractedState.payload,
-          rawOutput: extractedState.rawOutput
-        });
-
-        return {
-          approvedDraft,
-          stateSyncResult
-        };
-      })();
-
-      runRepository.create({
-        projectId: draft.project_id,
-        chapterId: draft.chapter_id,
-        runType: "state_extract",
-        templateKey: stateTemplateMetadata.key,
-        templateLabel: stateTemplateMetadata.name,
-        templateVersion: stateTemplateMetadata.version,
-        templateSummary: stateTemplateMetadata.summary,
-        promptText: extractedState.prompt,
-        inputContext: draft.draft_text,
-        outputText: extractedState.rawOutput,
-        model: extractedState.model,
-        status: "success"
-      });
-
-      const run = runRepository.create({
-        projectId: draft.project_id,
-        chapterId: draft.chapter_id,
-        runType: "draft_review_approve",
-        inputContext: approvalResult.approvedDraft.draft_text,
-        outputText: [
-          reviewReport,
-          "",
-          `state_sync: chapter_snapshot=${approvalResult.stateSyncResult.chapterSnapshot.id}`,
-          `state_sync: characters=${approvalResult.stateSyncResult.characterSnapshotCount}`,
-          `state_sync: factions=${approvalResult.stateSyncResult.factionSnapshotCount}`,
-          `state_sync: hooks=${approvalResult.stateSyncResult.hookSnapshotCount}`,
-          `state_sync: items=${approvalResult.stateSyncResult.itemStateCount}`
-        ].join("\n"),
-        model: "rule-reviewer-v1",
-        status: "success"
+      const approvalResult = await approvalService.approveDraft({
+        draftId: input.draftId,
+        reviewIssues: issues,
+        reviewNotes: input.notes,
+        existingReviewNotes: draft.review_notes
       });
 
       logger.progress("draft:review 3/3 导出 Final Markdown");
@@ -323,7 +268,7 @@ export class DraftService {
           action: input.action,
           draft: approvalResult.approvedDraft,
           issues,
-          generationRunId: run.id,
+          generationRunId: approvalResult.generationRunId,
           exportPath: exportResult.exportPath
         };
     } finally {

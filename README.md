@@ -2,7 +2,7 @@
 
 一个基于 TypeScript、CLI 和 SQLite 的 AI 小说编写工具。
 
-当前 V1 已支持：
+当前已支持：
 
 - 项目初始化
 - 总纲与分卷规划
@@ -12,6 +12,7 @@
 - 基于 `plan` 的 `draft` 生成
 - `review check / fix / approve`
 - `plan / draft / final` Markdown 导出
+- `plan / draft` Markdown 手工修改后回写
 - 生成历史、prompt 查看、AI 状态检查
 - 生成历史导出为 Markdown / JSON
 
@@ -119,6 +120,29 @@ npm run dev -- draft review --draft 1 --action fix
 npm run dev -- draft review --draft 1 --action approve
 ```
 
+说明：
+
+- `check` 只汇报问题，不改写正文
+- `fix` 会生成新的修订 draft，但不会更新正式状态
+- 只有 `approve` 才会把 draft 变成 final，并写入正式状态快照
+
+### 7. 导出后手工修改并回写
+
+```bash
+npm run dev -- chapter export --chapter 1 --source plan
+npm run dev -- plan import --chapter 1 --input exports/chapter-001-plan.md
+
+npm run dev -- chapter export --chapter 1 --source draft
+npm run dev -- draft import --draft 1 --input exports/chapter-001-draft.md
+```
+
+如果数据库中的源版本已经变化，可显式覆盖：
+
+```bash
+npm run dev -- plan import --chapter 1 --input exports/chapter-001-plan.md --force
+npm run dev -- draft import --draft 1 --input exports/chapter-001-draft.md --force
+```
+
 导出文件默认在 `exports/`：
 
 - `exports/chapter-001-plan.md`
@@ -163,9 +187,12 @@ novel chapter show
 novel chapter plan
 novel chapter export
 novel plan show
+novel plan import
 novel draft write
 novel draft review
 novel draft drop
+novel draft import
+novel state show
 novel state chapter-preview
 novel state approve-sync
 novel run history
@@ -275,6 +302,12 @@ npm run dev -- state chapter-preview --chapter 1
 npm run dev -- state approve-sync --chapter 1
 npm run dev -- state show --project 1 --chapter 1
 ```
+
+说明：
+
+- `state chapter-preview` 会基于最新 draft 或 final 预览“如果现在提取状态，会得到什么”
+- `state approve-sync` 会对已有正式章节重建状态快照
+- `state show` 会展示正式快照；其中物品状态当前来自 `chapter_state_snapshots.raw_payload`
 
 ## 生成历史导出
 

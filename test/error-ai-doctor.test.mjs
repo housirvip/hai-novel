@@ -303,6 +303,69 @@ test("Markdown 回写版本冲突会返回明确错误提示", () => {
   assert.match(conflictResult.output, /--force/);
 });
 
+test("Markdown 回写目标不匹配和文件不存在时会返回明确错误提示", () => {
+  const workspace = createWorkspace("hai-novel-import-errors-");
+
+  runBuiltCli(workspace, ["init"]);
+  runBuiltCli(workspace, [
+    "project",
+    "create",
+    "--name",
+    "回写错误测试",
+    "--genre",
+    "仙侠"
+  ]);
+  runBuiltCli(workspace, [
+    "chapter",
+    "create",
+    "--project",
+    "1",
+    "--title",
+    "第001章",
+    "--summary",
+    "章节摘要"
+  ]);
+  runBuiltCli(workspace, [
+    "chapter",
+    "plan",
+    "--project",
+    "1",
+    "--chapter",
+    "1"
+  ]);
+
+  const missingFileResult = runBuiltCliResult(workspace, [
+    "plan",
+    "import",
+    "--chapter",
+    "1",
+    "--input",
+    "exports/not-exists-plan.md"
+  ]);
+  assert.equal(missingFileResult.status, 1);
+  assert.match(missingFileResult.output, /\[FILESYSTEM\]/);
+  assert.match(missingFileResult.output, /--input/);
+
+  const planPath = path.join(workspace, "exports", "chapter-001-plan.md");
+  const mismatchedMarkdown = readFileSync(planPath, "utf8").replace(
+    /^chapter_id:\s*1$/m,
+    "chapter_id: 2"
+  );
+  writeFileSync(planPath, mismatchedMarkdown, "utf8");
+
+  const mismatchResult = runBuiltCliResult(workspace, [
+    "plan",
+    "import",
+    "--chapter",
+    "1",
+    "--input",
+    "exports/chapter-001-plan.md"
+  ]);
+  assert.equal(mismatchResult.status, 1);
+  assert.match(mismatchResult.output, /\[IMPORT_TARGET\]/);
+  assert.match(mismatchResult.output, /chapter_id/);
+});
+
 test("核心命令帮助文本会展示示例", () => {
   const workspace = createWorkspace("hai-novel-help-");
 
@@ -333,6 +396,22 @@ test("核心命令帮助文本会展示示例", () => {
   const stateApproveSyncHelp = runBuiltCli(workspace, ["state", "approve-sync", "--help"]);
   assert.match(stateApproveSyncHelp, /Examples:/);
   assert.match(stateApproveSyncHelp, /novel state approve-sync --chapter 1/);
+
+  const itemAddHelp = runBuiltCli(workspace, ["item", "add", "--help"]);
+  assert.match(itemAddHelp, /Examples:/);
+  assert.match(itemAddHelp, /novel item add --project 1 --name "黑玉佩"/);
+
+  const characterItemAddHelp = runBuiltCli(workspace, ["character", "item:add", "--help"]);
+  assert.match(characterItemAddHelp, /Examples:/);
+  assert.match(characterItemAddHelp, /novel character item:add --project 1 --character 1 --item 1/);
+
+  const characterItemListHelp = runBuiltCli(workspace, ["character", "item:list", "--help"]);
+  assert.match(characterItemListHelp, /Examples:/);
+  assert.match(characterItemListHelp, /novel character item:list --project 1 --character 1 --active-only/);
+
+  const characterItemRemoveHelp = runBuiltCli(workspace, ["character", "item:remove", "--help"]);
+  assert.match(characterItemRemoveHelp, /Examples:/);
+  assert.match(characterItemRemoveHelp, /novel character item:remove --link 1 --end-chapter 2/);
 
   const runHelp = runBuiltCli(workspace, ["run", "export", "--help"]);
   assert.match(runHelp, /Examples:/);

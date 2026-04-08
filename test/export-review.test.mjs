@@ -429,6 +429,8 @@ test("draft approve 后会写入章节、人物、势力和钩子状态快照", 
     assert.equal(stateResult.hookSnapshots[0].progress_status, "advanced");
     assert.match(stateResult.characterSnapshots[0].status_summary ?? "", /林渡/);
     assert.equal(stateResult.itemStates[0].item_name, "黑玉佩");
+    assert.equal(stateResult.itemStates[0].item_category, "artifact");
+    assert.equal(stateResult.itemStates[0].item_static_status, "normal");
     assert.equal(stateResult.itemStates[0].owner_character_name, "林渡");
   } finally {
     database.close();

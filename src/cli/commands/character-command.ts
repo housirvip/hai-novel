@@ -145,7 +145,14 @@ export function registerCharacterCommands(program: Command): void {
           start_chapter_id: linkRecord.start_chapter_id ?? ""
         }
       ]);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel character item:add --project 1 --character 1 --item 1 --type carry --start-chapter 1
+  novel character item:add --project 1 --character 1 --item 1 --equipped --note "贴身携带"`
+    );
 
   // 查看人物与物品的关系链路，默认可按角色、物品和是否仍在持有进行筛选。
   character
@@ -190,7 +197,14 @@ export function registerCharacterCommands(program: Command): void {
           note: linkRecord.note ?? ""
         }))
       );
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel character item:list --project 1
+  novel character item:list --project 1 --character 1 --active-only`
+    );
 
   // 结束一条持有关系时优先使用 link id，避免同一人物多次持有同一物品时发生歧义。
   character
@@ -222,5 +236,12 @@ export function registerCharacterCommands(program: Command): void {
           note: linkRecord.note ?? ""
         }
       ]);
-    });
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  novel character item:remove --link 1
+  novel character item:remove --link 1 --end-chapter 2 --note "暂时交由长老保管"`
+    );
 }

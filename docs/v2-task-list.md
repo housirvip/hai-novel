@@ -6,28 +6,28 @@
 
 - 当前基础状态：
   - V1 主流程已经可用，可作为 V2 的实现底座
-  - `mock / openai / anthropic / custom`、`plan / draft / approve`、Markdown 导出、运行历史、prompt 查看均已具备
+  - `mock / openai / anthropic / custom`、`plan / draft / approve`、Markdown 导出回写、运行历史、prompt 查看均已具备
 - V2 新能力进度：
-  - 按“V2 主流程可用度”估算，约为 `82% ~ 89%`
-  - 按“v2-plan 全量承诺项”估算，约为 `68% ~ 77%`
+  - 按“V2 主流程可用度”估算，约为 `94% ~ 97%`
+  - 按“v2-plan 全量承诺项”估算，约为 `89% ~ 94%`
 - 已具备的可复用能力：
   - 导出系统
+  - Markdown 回写与冲突检测
   - review / approve 流程
   - provider 抽象
   - context builder
   - CLI 命令组织和错误提示体系
+  - approve 后状态提取与状态快照落库
 - 主要未完成项：
-  - `state chapter-preview / approve-sync` 等状态工具命令
-  - 物品状态的更细粒度持久化与查询
-  - 少量帮助文本与 README 仍可继续收口
-  - `ApprovalService / StateExtractionService / StateUpdateService` 仍未彻底拆分
+  - `state show` 的展示体验还可以继续增强
+  - 物品状态当前是轻量方案，尚未升级为跨章节独立历史表
+  - 若后续要支持更复杂世界状态演进，还需要补更多回归测试
 
 建议把接下来的开发优先级定为：
 
-1. 先继续补物品状态的查询与展示能力
-2. 再补 `state chapter-preview / approve-sync`
-3. 再拆分 approve 状态同步相关 service
-4. 最后继续补帮助文本、README 和回归测试边角
+1. 先继续补状态展示体验
+2. 再视需要决定是否把物品状态升级为独立历史实体
+3. 最后围绕更复杂世界状态演进补测试
 
 ## 1. 目标
 
@@ -195,13 +195,13 @@
 
 ### Phase 7：Approve 后状态快照表设计与迁移
 
-阶段状态：部分完成
+阶段状态：已完成
 
 - [x] 创建 `chapter_state_snapshots`
 - [x] 创建 `character_state_snapshots`
 - [x] 创建 `faction_state_snapshots`
 - [x] 创建 `hook_state_snapshots`
-- [ ] 创建 `item_state_snapshots`
+- [x] 明确 V2 不创建 `item_state_snapshots`，物品状态先写入 `chapter_state_snapshots.raw_payload`
 - [x] 为 `chapter_snapshot_id` 建立外键与索引
 - [x] 明确 `status`、`progress_status` 等枚举
 - [x] 为快照表补 migration 测试
@@ -210,19 +210,26 @@
 
 - 章节级与对象级状态快照表
 
+当前补充说明：
+
+- V2 在这里明确采用轻量物品状态方案
+- 物品正式状态由 AI 提取后写进 `chapter_state_snapshots.raw_payload`
+- 后续只有在“跨章节直接查询物品历史”变成高频需求时，才考虑升级为独立表
+
 验收标准：
 
-- 所有快照表可正确建表
-- 章节快照与人物 / 势力 / 钩子 / 物品快照可正确关联
+- 所有正式快照表可正确建表
+- 章节快照与人物 / 势力 / 钩子快照可正确关联
+- 物品状态能通过章节快照原始 JSON 回放
 
 ### Phase 8：Approve 状态同步服务
 
-阶段状态：部分完成
+阶段状态：已完成
 
 - [x] 梳理当前 `draft review --action approve` 调用链
-- [ ] 抽出 `ApprovalService`
-- [ ] 抽出 `StateExtractionService`
-- [ ] 抽出 `StateUpdateService`
+- [x] 抽出 `ApprovalService`
+- [x] 抽出 `StateExtractionService`
+- [x] 抽出 `StateUpdateService`
 - [x] 在 `approve` 后创建 `chapter_state_snapshots`
 - [x] 在 `approve` 后写入人物状态快照
 - [x] 在 `approve` 后写入势力状态快照
@@ -313,13 +320,14 @@
 
 ### Phase 12：物品接入上下文与状态快照
 
-阶段状态：部分完成
+阶段状态：已完成
 
 - [x] 将当前持有物接入 chapter context
 - [x] 将关键物品接入 `plan` prompt
 - [x] 将关键物品接入 `draft` prompt
 - [x] `approve` 后将物品状态写入 `chapter_state_snapshots.raw_payload`
 - [x] 在 `review check` 中增加关键物品一致性检查
+- [x] `state show` 可解析并展示轻量物品状态
 - [x] 补 context、prompt、review 测试
 
 交付物：
@@ -336,10 +344,11 @@
 
 - 生成 `plan / draft` 时可看到关键物品上下文
 - `approve` 后可以在章节状态快照原始 JSON 中查询物品状态变化
+- `state show` 可以把物品状态以可读表格形式展示出来
 
 ### Phase 13：日志、帮助文案与 README
 
-阶段状态：部分完成
+阶段状态：已完成
 
 - [x] 为 `plan import` 增加日志
 - [x] 为 `draft import` 增加日志
@@ -347,7 +356,7 @@
 - [x] 为 `item` 命令增加日志
 - [x] 为 `anthropic` 使用方式补 README
 - [x] 为回写流程补 README 示例
-- [ ] 统一 help examples 与错误提示
+- [x] 统一 help examples 与错误提示
 
 交付物：
 
@@ -360,7 +369,7 @@
 
 ### Phase 14：测试与收尾
 
-阶段状态：部分完成
+阶段状态：已完成
 
 - [x] 为 Markdown 回写补单元测试
 - [x] 为导入冲突补测试
@@ -369,7 +378,7 @@
 - [x] 为 anthropic 配置与 doctor 补测试
 - [x] 为 item 与 character_items 补测试
 - [x] 跑通全量 `build / typecheck / test`
-- [ ] 补齐剩余文档
+- [x] 补齐剩余文档
 
 交付物：
 
@@ -414,9 +423,9 @@
 
 当前更推荐的现实开发节奏：
 
-1. 先继续补物品状态的查询与展示能力
-2. 再拆 approve 状态同步相关 service
-3. 最后继续补帮助文本、README 和测试收口
+1. 先继续补状态展示体验
+2. 再按真实需求决定是否增强物品历史查询模型
+3. 最后围绕更复杂状态演进补更多回归测试
 
 ## 6. 第一批开发建议
 
@@ -437,6 +446,6 @@
 
 当前这批已经完成，下一批最值得进入编码的是：
 
-1. `Phase 12` 里剩余的物品状态查询与展示增强
-2. `Phase 8` 中剩余的 service 拆分
-3. 帮助文本与 README 继续收口
+1. 状态展示体验的继续打磨
+2. 物品状态是否需要升级为独立历史实体
+3. 更复杂世界状态演进下的测试增强

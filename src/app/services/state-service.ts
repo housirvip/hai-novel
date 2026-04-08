@@ -19,7 +19,8 @@ import type {
 } from "../../domain/types/index.js";
 import { logger } from "../../utils/logger.js";
 import type { RuntimeContext } from "./context-service.js";
-import { StateSyncService } from "./state-sync-service.js";
+import { StateExtractionService } from "./state-extraction-service.js";
+import { StateUpdateService } from "./state-update-service.js";
 
 /**
  * 状态快照查询服务。
@@ -61,11 +62,10 @@ export class StateService {
         throw new Error(`No draft found for chapter ${input.chapterId}. Run \`novel draft write\` first.`);
       }
 
-      const stateSyncService = new StateSyncService(this.context, database);
-      const extracted = await stateSyncService.extractApprovedChapterState({
+      const extractionService = new StateExtractionService(this.context, database);
+      const extracted = await extractionService.extractChapterState({
         projectId: chapter.project_id,
         chapterId: chapter.id,
-        draftId: sourceDraftId ?? 0,
         finalText: sourceText
       });
 
@@ -104,23 +104,22 @@ export class StateService {
         );
       }
 
-      const stateSyncService = new StateSyncService(this.context, database);
-      const extracted = await stateSyncService.extractApprovedChapterState({
+      const extractionService = new StateExtractionService(this.context, database);
+      const updateService = new StateUpdateService(database);
+      const extracted = await extractionService.extractChapterState({
         projectId: chapter.project_id,
         chapterId: chapter.id,
-        draftId: chapter.approved_draft_id ?? 0,
         finalText: chapter.final_text
       });
 
       const previousSnapshots = chapterSnapshotRepository.findAllByChapterId(chapter.id);
       const syncResult = database.transaction(() => {
         const replacedSnapshotCount = chapterSnapshotRepository.deleteByChapterId(chapter.id);
-        const applied = stateSyncService.applyApprovedChapterState({
+        const applied = updateService.applyChapterState({
           projectId: chapter.project_id,
           chapterId: chapter.id,
           draftId: chapter.approved_draft_id ?? undefined,
-          payload: extracted.payload,
-          rawOutput: extracted.rawOutput
+          payload: extracted.payload
         });
 
         return {
@@ -184,7 +183,7 @@ export class StateService {
       const characters = characterRepository.findAllByProjectId(input.projectId);
       const itemStates = this.extractItemStatesFromChapterSnapshots(
         chapterSnapshots,
-        new Map(items.map((item) => [item.id, item.name])),
+        new Map(items.map((item) => [item.id, item])),
         new Map(characters.map((character) => [character.id, character.name]))
       );
 
@@ -207,7 +206,15 @@ export class StateService {
   // 物品状态当前采用轻量方案，直接从章节快照 raw_payload 中提取，不额外建表。
   private extractItemStatesFromChapterSnapshots(
     chapterSnapshots: ChapterStateSnapshotRecord[],
-    itemNames: Map<number, string>,
+    itemRecords: Map<
+      number,
+      {
+        name: string;
+        category: string | null;
+        rarity: string | null;
+        status: string;
+      }
+    >,
     characterNames: Map<number, string>
   ): StateShowItemState[] {
     const result: StateShowItemState[] = [];
@@ -225,12 +232,16 @@ export class StateService {
 
         const ownerCharacterId =
           typeof item.owner_character_id === "number" ? item.owner_character_id : null;
+        const itemRecord = itemRecords.get(item.item_id);
 
         result.push({
           chapter_snapshot_id: snapshot.id,
           chapter_id: snapshot.chapter_id,
           item_id: item.item_id,
-          item_name: itemNames.get(item.item_id) ?? null,
+          item_name: itemRecord?.name ?? null,
+          item_category: itemRecord?.category ?? null,
+          item_rarity: itemRecord?.rarity ?? null,
+          item_static_status: itemRecord?.status ?? null,
           owner_character_id: ownerCharacterId,
           owner_character_name:
             ownerCharacterId !== null ? characterNames.get(ownerCharacterId) ?? null : null,

@@ -1539,6 +1539,12 @@ export interface StateShowItemState {
   item_id: number;
   /** 物品名称；查不到时可为空。 */
   item_name: string | null;
+  /** 物品分类；来自物品主档案，便于区分法器、文书、信物等。 */
+  item_category: string | null;
+  /** 物品稀有度；来自物品主档案，便于快速判断重要性。 */
+  item_rarity: string | null;
+  /** 物品静态状态；来自物品主档案，用来对照本章动态状态摘要。 */
+  item_static_status: string | null;
   /** 当前持有人角色 ID。 */
   owner_character_id: number | null;
   /** 当前持有人名称；查不到时可为空。 */

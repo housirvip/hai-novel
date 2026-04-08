@@ -14,6 +14,15 @@ export interface PresentedCliError {
 export function presentCliError(error: unknown): PresentedCliError {
   const message = error instanceof Error ? error.message : String(error);
 
+  // Node 在文件不存在时通常会抛 `ENOENT`，这里统一转成更容易理解的文件错误。
+  if (message.includes("ENOENT") || message.includes("no such file or directory")) {
+    return {
+      code: "FILESYSTEM",
+      message,
+      hint: "检查 `--input` 指向的文件路径是否存在，必要时先重新执行导出命令生成 Markdown 文件。"
+    };
+  }
+
   if (message.includes("Workspace is not initialized")) {
     return {
       code: "PRECONDITION",
@@ -27,6 +36,15 @@ export function presentCliError(error: unknown): PresentedCliError {
       code: "ARGUMENT",
       message,
       hint: "检查对应选项是否传入了有效数字，例如 `--project 1`、`--chapter 3`。"
+    };
+  }
+
+  // 多个命令都复用了“must be one of”风格的枚举参数校验，这里统一给出更泛化的修复提示。
+  if (message.includes("must be one of:")) {
+    return {
+      code: "ARGUMENT",
+      message,
+      hint: "按提示检查枚举参数的可选值，并确认命令示例里的拼写和大小写是否一致。"
     };
   }
 
@@ -71,6 +89,22 @@ export function presentCliError(error: unknown): PresentedCliError {
       code: "MARKDOWN_FORMAT",
       message,
       hint: "检查 Markdown 的 entity_type、entity_id、source_version 以及正文 section 标题是否仍然存在。"
+    };
+  }
+
+  if (message.includes("Plan import chapter mismatch")) {
+    return {
+      code: "IMPORT_TARGET",
+      message,
+      hint: "确认 `--chapter` 与 Markdown 头部里的 `chapter_id` 指向同一章节，避免把规划回写到错误目标。"
+    };
+  }
+
+  if (message.includes("Draft import target mismatch")) {
+    return {
+      code: "IMPORT_TARGET",
+      message,
+      hint: "确认 `--draft` 与 Markdown 头部里的 `entity_id` 一致，避免把草稿回写到错误目标。"
     };
   }
 
@@ -127,6 +161,22 @@ export function presentCliError(error: unknown): PresentedCliError {
       code: "ARGUMENT",
       message,
       hint: "手写分卷时传 `--title`，或改用 `--from-outline` 让系统依据总纲自动生成。"
+    };
+  }
+
+  if (message.includes("does not belong to chapter")) {
+    return {
+      code: "DATA_MISMATCH",
+      message,
+      hint: "检查传入的 `--chapter` 与 `--draft` 是否属于同一章节，必要时先用 `show/list` 命令确认 ID。"
+    };
+  }
+
+  if (message.includes("State extraction did not return a JSON object")) {
+    return {
+      code: "AI_OUTPUT",
+      message,
+      hint: "当前模型返回的不是可解析 JSON；可先切回 `mock` 验证流程，或调整 provider / prompt 后重试。"
     };
   }
 

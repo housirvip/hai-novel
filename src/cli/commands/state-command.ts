@@ -8,6 +8,48 @@ import {
   parseRequiredIntegerOption
 } from "../command-helpers.js";
 
+/**
+ * 章节状态快照里会把完整提取结果存进 `raw_payload`。
+ * 命令行展示时只需要轻量统计数量，因此这里做一个宽松解析，避免脏数据导致 show 整体失败。
+ */
+function extractSnapshotObjectCounts(rawPayload: string | null): {
+  character_count: number;
+  faction_count: number;
+  hook_count: number;
+  item_count: number;
+} {
+  if (!rawPayload) {
+    return {
+      character_count: 0,
+      faction_count: 0,
+      hook_count: 0,
+      item_count: 0
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(rawPayload) as Record<string, unknown>;
+    return {
+      character_count: Array.isArray(parsed.characters) ? parsed.characters.length : 0,
+      faction_count: Array.isArray(parsed.factions) ? parsed.factions.length : 0,
+      hook_count: Array.isArray(parsed.hooks) ? parsed.hooks.length : 0,
+      item_count: Array.isArray(parsed.items) ? parsed.items.length : 0
+    };
+  } catch {
+    return {
+      character_count: 0,
+      faction_count: 0,
+      hook_count: 0,
+      item_count: 0
+    };
+  }
+}
+
+// 控制台表格较多时，先打印一个短标题，阅读体验会稳定很多。
+function printStateSection(title: string): void {
+  logger.info(`${title}:`);
+}
+
 export function registerStateCommands(program: Command): void {
   const state = program.command("state").description("Approved state snapshot commands.");
 
@@ -29,17 +71,23 @@ export function registerStateCommands(program: Command): void {
         draftId: options.draft
       });
 
+      printStateSection("preview_summary");
       console.table([
         {
           chapter_id: result.chapterId,
           project_id: result.projectId,
           source_type: result.sourceType,
           source_draft_id: result.sourceDraftId ?? "",
-          chapter_summary: result.payload.chapter_summary
+          chapter_summary: result.payload.chapter_summary,
+          character_count: result.payload.characters.length,
+          faction_count: result.payload.factions.length,
+          hook_count: result.payload.hooks.length,
+          item_count: result.payload.items.length
         }
       ]);
 
       if (result.payload.characters.length > 0) {
+        printStateSection("character_preview");
         console.table(
           result.payload.characters.map((character) => ({
             character_id: character.character_id,
@@ -51,6 +99,7 @@ export function registerStateCommands(program: Command): void {
       }
 
       if (result.payload.factions.length > 0) {
+        printStateSection("faction_preview");
         console.table(
           result.payload.factions.map((faction) => ({
             faction_id: faction.faction_id,
@@ -61,6 +110,7 @@ export function registerStateCommands(program: Command): void {
       }
 
       if (result.payload.hooks.length > 0) {
+        printStateSection("hook_preview");
         console.table(
           result.payload.hooks.map((hook) => ({
             hook_id: hook.hook_id,
@@ -71,6 +121,7 @@ export function registerStateCommands(program: Command): void {
       }
 
       if (result.payload.items.length > 0) {
+        printStateSection("item_preview");
         console.table(
           result.payload.items.map((item) => ({
             item_id: item.item_id,
@@ -146,6 +197,7 @@ Examples:
         return;
       }
 
+      printStateSection("chapter_snapshots");
       console.table(
         result.chapterSnapshots.map((snapshot) => ({
           id: snapshot.id,
@@ -154,6 +206,7 @@ Examples:
           source_draft_id: snapshot.source_draft_id ?? "",
           status: snapshot.status,
           summary: snapshot.summary ?? "",
+          ...extractSnapshotObjectCounts(snapshot.raw_payload),
           applied_at: snapshot.applied_at ?? "",
           created_at: snapshot.created_at
         }))
@@ -161,6 +214,7 @@ Examples:
 
       if (options.chapter !== undefined) {
         if (result.characterSnapshots.length > 0) {
+          printStateSection("character_snapshots");
           console.table(
             result.characterSnapshots.map((snapshot) => ({
               id: snapshot.id,
@@ -172,6 +226,7 @@ Examples:
         }
 
         if (result.factionSnapshots.length > 0) {
+          printStateSection("faction_snapshots");
           console.table(
             result.factionSnapshots.map((snapshot) => ({
               id: snapshot.id,
@@ -183,6 +238,7 @@ Examples:
         }
 
         if (result.hookSnapshots.length > 0) {
+          printStateSection("hook_snapshots");
           console.table(
             result.hookSnapshots.map((snapshot) => ({
               id: snapshot.id,
@@ -195,11 +251,15 @@ Examples:
         }
 
         if (result.itemStates.length > 0) {
+          printStateSection("item_states");
           console.table(
             result.itemStates.map((itemState) => ({
               chapter_snapshot_id: itemState.chapter_snapshot_id,
               item_id: itemState.item_id,
               item_name: itemState.item_name ?? "",
+              item_category: itemState.item_category ?? "",
+              item_rarity: itemState.item_rarity ?? "",
+              item_static_status: itemState.item_static_status ?? "",
               owner_character_id: itemState.owner_character_id ?? "",
               owner_character_name: itemState.owner_character_name ?? "",
               status_summary: itemState.status_summary ?? "",

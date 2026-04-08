@@ -380,6 +380,7 @@ test("state show 会展示章节快照里的轻量物品状态", () => {
   const stateOutput = runNovel(workspace, ["state", "show", "--project", "1", "--chapter", "1"]);
   assert.match(stateOutput, /黑玉佩/);
   assert.match(stateOutput, /林渡/);
+  assert.match(stateOutput, /artifact/);
 });
 
 test("state chapter-preview 会预览本章最新草稿的状态变化", () => {
