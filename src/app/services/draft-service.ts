@@ -414,7 +414,7 @@ export class DraftService {
     const prompt = buildDraftFixPrompt(draftText, issues, notes);
     const settings = resolveAISettings(this.context);
 
-    if (settings.provider !== "openai") {
+    if (settings.provider === "mock") {
       return {
         text: this.fixDraftText(context, draftText, issues, notes),
         model: "rule-reviewer-v1",

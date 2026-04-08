@@ -1,6 +1,7 @@
 import type { RuntimeContext } from "../app/services/context-service.js";
 import { ensureRuntimeEnvLoaded } from "../config/runtime-env.js";
 import type { AIProviderType } from "../domain/types/index.js";
+import { AnthropicProvider } from "./anthropic-provider.js";
 import { MockProvider } from "./mock-provider.js";
 import { OpenAIProvider } from "./openai-provider.js";
 import type { AIProvider } from "./provider.js";
@@ -25,18 +26,29 @@ export function resolveAISettings(context: RuntimeContext): ResolvedAISettings {
   const provider = (process.env.NOVEL_AI_PROVIDER ??
     context.config.ai.provider) as AIProviderType;
   const model = process.env.NOVEL_AI_MODEL ?? context.config.ai.model;
-  const baseUrl =
-    process.env.OPENAI_BASE_URL ??
-    context.config.ai.baseUrl ??
-    "https://api.openai.com";
-  const apiKey = process.env.OPENAI_API_KEY;
+  const openAIBaseUrl =
+    process.env.OPENAI_BASE_URL ?? context.config.ai.baseUrl ?? "https://api.openai.com";
+  const anthropicBaseUrl =
+    process.env.ANTHROPIC_BASE_URL ?? context.config.ai.baseUrl ?? "https://api.anthropic.com";
+  const apiKey =
+    provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY;
 
   return {
     provider,
     model,
-    baseUrl: provider === "openai" ? baseUrl : undefined,
+    baseUrl:
+      provider === "openai"
+        ? openAIBaseUrl
+        : provider === "anthropic"
+          ? anthropicBaseUrl
+          : undefined,
     hasApiKey: Boolean(apiKey),
-    apiKeyEnvName: provider === "openai" ? "OPENAI_API_KEY" : undefined
+    apiKeyEnvName:
+      provider === "openai"
+        ? "OPENAI_API_KEY"
+        : provider === "anthropic"
+          ? "ANTHROPIC_API_KEY"
+          : undefined
   };
 }
 
@@ -54,6 +66,21 @@ export function createAIProvider(context: RuntimeContext): AIProvider {
     return new OpenAIProvider({
       apiKey,
       baseUrl: settings.baseUrl ?? "https://api.openai.com",
+      model: settings.model
+    });
+  }
+
+  if (settings.provider === "anthropic") {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "Anthropic provider requires `ANTHROPIC_API_KEY`. Set the environment variable or switch `ai.provider` to `mock`."
+      );
+    }
+
+    return new AnthropicProvider({
+      apiKey,
+      baseUrl: settings.baseUrl ?? "https://api.anthropic.com",
       model: settings.model
     });
   }

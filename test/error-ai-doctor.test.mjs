@@ -131,6 +131,28 @@ test("ai doctor 支持 config 和 network 分区诊断", () => {
   assert.match(networkResult, /missing_api_key/);
   assert.match(networkResult, /network: 未检测到 OPENAI_API_KEY/);
   assert.match(networkResult, /generation: 未检测到 OPENAI_API_KEY/);
+
+  config.ai.provider = "anthropic";
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+
+  const anthropicConfigResult = runBuiltCli(workspace, [
+    "ai",
+    "doctor",
+    "--section",
+    "config"
+  ]);
+  assert.match(anthropicConfigResult, /ANTHROPIC_API_KEY/);
+  assert.match(anthropicConfigResult, /config: 当前 provider 为 anthropic/);
+
+  const anthropicNetworkResult = runBuiltCli(workspace, [
+    "ai",
+    "doctor",
+    "--section",
+    "network"
+  ]);
+  assert.match(anthropicNetworkResult, /missing_api_key/);
+  assert.match(anthropicNetworkResult, /network: 未检测到 ANTHROPIC_API_KEY/);
+  assert.match(anthropicNetworkResult, /generation: 未检测到 ANTHROPIC_API_KEY/);
 });
 
 test("边界异常场景会返回更明确的错误提示", () => {

@@ -90,6 +90,14 @@ export function presentCliError(error: unknown): PresentedCliError {
     };
   }
 
+  if (message.includes("Anthropic provider requires `ANTHROPIC_API_KEY`")) {
+    return {
+      code: "AI_CONFIG",
+      message,
+      hint: "配置 `ANTHROPIC_API_KEY`，或把 `novel.config.json` 里的 `ai.provider` 切回 `mock`。"
+    };
+  }
+
   if (message.includes("No story outline found")) {
     return {
       code: "MISSING_OUTLINE",

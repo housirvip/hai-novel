@@ -54,20 +54,21 @@ export interface PromptBundle {
 
 /**
  * AI provider 类型。
- * V1 先支持本地 mock 和 OpenAI Responses API。
+ * 当前支持本地 mock、OpenAI Responses API 和 Anthropic Messages API。
  */
-export type AIProviderType = "mock" | "openai";
+export type AIProviderType = "mock" | "openai" | "anthropic";
 
 /**
  * AI 运行配置。
  * 这里不直接保存密钥，只保存 provider、模型和可选的基础地址。
+ * 真正的密钥统一从环境变量读取，避免落入配置文件。
  */
 export interface AIConfig {
   /** 当前启用的 provider 类型。 */
   provider: AIProviderType;
   /** 默认模型名称。 */
   model: string;
-  /** 可选的 OpenAI 兼容基础地址。 */
+  /** 可选的 provider 基础地址。 */
   baseUrl?: string;
 }
 

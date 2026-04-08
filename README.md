@@ -184,6 +184,24 @@ cp .env.example .env
 export OPENAI_API_KEY="your_key"
 ```
 
+如需使用 Anthropic，需要配置：
+
+```bash
+export ANTHROPIC_API_KEY="your_key"
+```
+
+常见切换方式示例：
+
+```bash
+# OpenAI
+NOVEL_AI_PROVIDER=openai
+NOVEL_AI_MODEL=gpt-4.1-mini
+
+# Anthropic
+NOVEL_AI_PROVIDER=anthropic
+NOVEL_AI_MODEL=claude-sonnet-4-20250514
+```
+
 除了 Provider 相关配置外，下面这些参数也可以放进 `.env` 调优：
 
 - 显示与日志截断长度：`NOVEL_DISPLAY_*`

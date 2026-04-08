@@ -5,6 +5,7 @@ import type { RuntimeContext } from "./context-service.js";
 
 export type AIDoctorSection = "config" | "network" | "all";
 export type AIDoctorTask = "ai_test" | "chapter-plan" | "draft-write" | "draft-fix";
+type RemoteAIProviderType = "openai" | "anthropic";
 
 export interface AIDoctorResult {
   /** 当前 provider。 */
@@ -137,11 +138,11 @@ export class AIDoctorService {
         configMessage: configDiagnosis.configMessage,
         networkChecked: false,
         networkOk: false,
-        networkMessage: "未检测到 OPENAI_API_KEY，已跳过网络检查。",
+        networkMessage: `未检测到 ${apiKeyEnvName}，已跳过网络检查。`,
         networkErrorType: "missing_api_key",
         generationChecked: false,
         generationOk: false,
-        generationMessage: "未检测到 OPENAI_API_KEY，已跳过生成测试。",
+        generationMessage: `未检测到 ${apiKeyEnvName}，已跳过生成测试。`,
         generationErrorType: "missing_api_key"
       };
     }
@@ -186,7 +187,7 @@ export class AIDoctorService {
       };
     }
 
-    const networkResult = await this.checkOpenAINetwork({
+    const networkResult = await this.checkProviderNetwork({
       provider: settings.provider,
       model: settings.model,
       baseUrl,
@@ -214,7 +215,7 @@ export class AIDoctorService {
       };
     }
 
-    const generationResult = await this.runGenerateTest("openai", {
+    const generationResult = await this.runGenerateTest(settings.provider as RemoteAIProviderType, {
       task: options.testTask,
       projectId: options.projectId,
       chapterId: options.chapterId,
@@ -249,18 +250,18 @@ export class AIDoctorService {
     if (!settings.hasApiKey) {
       return {
         configOk: false,
-        configMessage: "当前 provider 为 openai，但未检测到 `OPENAI_API_KEY`。"
+        configMessage: `当前 provider 为 ${settings.provider}，但未检测到 \`${settings.apiKeyEnvName}\`。`
       };
     }
 
     return {
       configOk: true,
-      configMessage: "OpenAI 配置基本完整，可继续执行网络连通性检查。"
+      configMessage: `${settings.provider} 配置基本完整，可继续执行网络连通性检查。`
     };
   }
 
-  private async checkOpenAINetwork(input: {
-    provider: string;
+  private async checkProviderNetwork(input: {
+    provider: RemoteAIProviderType;
     model: string;
     baseUrl: string;
     apiKeyEnvName: string;
@@ -270,15 +271,14 @@ export class AIDoctorService {
     };
   }): Promise<AIDoctorResult> {
     try {
-      // 这里用 models 接口做最小连通性探测，比直接发生成请求更轻。
+      // OpenAI 和 Anthropic 都支持 models 接口，用它做最小探测比直接发生成请求更轻。
       const response = await fetch(new URL("/v1/models", input.baseUrl), {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`
-        }
+        headers: this.buildNetworkHeaders(input.provider)
       });
 
       if (response.ok) {
+        const providerLabel = this.formatProviderLabel(input.provider);
         return {
           provider: input.provider,
           model: input.model,
@@ -289,7 +289,7 @@ export class AIDoctorService {
           configMessage: input.configDiagnosis.configMessage,
           networkChecked: true,
           networkOk: true,
-          networkMessage: "OpenAI 网络检查通过。",
+          networkMessage: `${providerLabel} 网络检查通过。`,
           networkErrorType: "none",
           httpStatus: response.status,
           generationChecked: false,
@@ -301,6 +301,7 @@ export class AIDoctorService {
 
       const responseText = await response.text();
       const networkErrorType = this.classifyHttpStatus(response.status);
+      const providerLabel = this.formatProviderLabel(input.provider);
       return {
         provider: input.provider,
         model: input.model,
@@ -311,7 +312,7 @@ export class AIDoctorService {
         configMessage: input.configDiagnosis.configMessage,
         networkChecked: true,
         networkOk: false,
-        networkMessage: `OpenAI 网络检查失败：${responseText.slice(
+        networkMessage: `${providerLabel} 网络检查失败：${responseText.slice(
           0,
           runtimeEnv.display.networkErrorPreviewLength
         )}`,
@@ -324,6 +325,7 @@ export class AIDoctorService {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const providerLabel = this.formatProviderLabel(input.provider);
       return {
         provider: input.provider,
         model: input.model,
@@ -334,7 +336,7 @@ export class AIDoctorService {
         configMessage: input.configDiagnosis.configMessage,
         networkChecked: true,
         networkOk: false,
-        networkMessage: `OpenAI 网络检查异常：${message}`,
+        networkMessage: `${providerLabel} 网络检查异常：${message}`,
         networkErrorType: "network_error",
         generationChecked: false,
         generationOk: false,
@@ -345,7 +347,7 @@ export class AIDoctorService {
   }
 
   private async runGenerateTest(
-    provider: "mock" | "openai",
+    provider: "mock" | RemoteAIProviderType,
     input?: {
       task?: AIDoctorTask;
       projectId?: number;
@@ -393,6 +395,23 @@ export class AIDoctorService {
         generationErrorType: "generation_error"
       };
     }
+  }
+
+  private buildNetworkHeaders(provider: RemoteAIProviderType): Record<string, string> {
+    if (provider === "anthropic") {
+      return {
+        "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
+        "anthropic-version": "2023-06-01"
+      };
+    }
+
+    return {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`
+    };
+  }
+
+  private formatProviderLabel(provider: RemoteAIProviderType): string {
+    return provider === "anthropic" ? "Anthropic" : "OpenAI";
   }
 
   private buildGeneratePayload(

@@ -261,8 +261,8 @@ export class ChapterService {
     const prompt = this.buildPlanPrompt(context, intent);
     const settings = resolveAISettings(this.context);
 
-    // 默认仍走本地规划器，只有显式配置为 openai 时才切真实模型，保证现有开发体验稳定。
-    if (settings.provider !== "openai") {
+    // 默认仍走本地规划器，只有显式配置为真实 provider 时才切模型，保证本地开发体验稳定。
+    if (settings.provider === "mock") {
       return {
         text: buildLocalChapterPlanText(context, intent),
         model: "rule-planner-v1",

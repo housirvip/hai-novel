@@ -169,6 +169,7 @@ Examples:
   novel ai doctor
   novel ai doctor --section config
   novel ai doctor --section all --test-generate
+  novel ai doctor --section config   # 可配合 anthropic / openai 检查 provider 配置
   novel ai doctor --section all --test-generate --test-prompt "请只回复：联调通过"
   novel ai doctor --section all --test-generate --test-task chapter-plan --project 1 --chapter 1
   novel ai doctor --section all --test-generate --test-task draft-write --project 1 --chapter 1
