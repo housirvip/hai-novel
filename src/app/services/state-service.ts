@@ -64,6 +64,12 @@ export class StateService {
       const sourceDraftId = draft?.id ?? null;
 
       if (!sourceText) {
+        const latestAnyDraft = draftRepository.findLatestAnyStatusByChapterId(input.chapterId);
+        if (latestAnyDraft?.status === "dropped") {
+          throw new Error(
+            `No draft found for chapter ${input.chapterId}. Latest draft was dropped. Run \`novel draft write\` first or pass \`--draft <id>\` explicitly.`
+          );
+        }
         throw new Error(`No draft found for chapter ${input.chapterId}. Run \`novel draft write\` first.`);
       }
 

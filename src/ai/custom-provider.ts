@@ -1,4 +1,5 @@
 import type { AIProvider, GenerateTextInput, GenerateTextResult } from "./provider.js";
+import { parseJsonResponse } from "./response-utils.js";
 
 export interface CustomProviderOptions {
   /** 自定义 provider 的 API Key，可为空。 */
@@ -62,7 +63,11 @@ export class CustomProvider implements AIProvider {
       response.headers.get("x-request-id") ??
       response.headers.get("request-id") ??
       undefined;
-    const payload = (await response.json()) as CustomChatCompletionPayload;
+    const payload = await parseJsonResponse<CustomChatCompletionPayload>(
+      response,
+      "Custom",
+      requestId
+    );
 
     if (!response.ok) {
       const message =

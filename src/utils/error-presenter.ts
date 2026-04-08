@@ -64,6 +64,14 @@ export function presentCliError(error: unknown): PresentedCliError {
     };
   }
 
+  if (message.includes("Approve completed for draft") && message.includes("final export failed")) {
+    return {
+      code: "POST_APPROVE_EXPORT",
+      message,
+      hint: "本次 approve 已经成功写入 final 和状态快照；可先执行 `novel chapter export --chapter <id> --source final` 单独重导出。"
+    };
+  }
+
   if (message.includes("No final text found for chapter")) {
     return {
       code: "MISSING_FINAL",
@@ -190,7 +198,8 @@ export function presentCliError(error: unknown): PresentedCliError {
 
   if (
     message.includes("State extraction did not return a JSON object") ||
-    message.includes("State extraction returned invalid JSON")
+    message.includes("State extraction returned invalid JSON") ||
+    message.includes("provider returned a non-JSON response")
   ) {
     return {
       code: "AI_OUTPUT",

@@ -1,4 +1,5 @@
 import type { AIProvider, GenerateTextInput, GenerateTextResult } from "./provider.js";
+import { parseJsonResponse } from "./response-utils.js";
 
 export interface AnthropicProviderOptions {
   /** Anthropic API Key。 */
@@ -48,7 +49,11 @@ export class AnthropicProvider implements AIProvider {
     });
 
     const requestId = response.headers.get("request-id") ?? undefined;
-    const payload = (await response.json()) as AnthropicMessageResponsePayload;
+    const payload = await parseJsonResponse<AnthropicMessageResponsePayload>(
+      response,
+      "Anthropic",
+      requestId
+    );
 
     if (!response.ok) {
       const message =

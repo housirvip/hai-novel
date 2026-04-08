@@ -44,6 +44,7 @@ export class DraftService {
     try {
       const planRepository = new ChapterPlanRepository(database);
       const draftRepository = new ChapterDraftRepository(database);
+      const chapterRepository = new ChapterRepository(database);
       const runRepository = new GenerationRunRepository(database);
       const contextBuilder = new ChapterContextBuilder(database);
 
@@ -91,6 +92,7 @@ export class DraftService {
         draftText: generated.text,
         status: "generated"
       });
+      chapterRepository.updateStatus(input.chapterId, "drafting");
 
       const run = runRepository.create({
         projectId: input.projectId,
@@ -162,6 +164,7 @@ export class DraftService {
           reviewNotes: input.notes ?? null,
           reviewReport
         });
+        chapterRepository.updateStatus(draft.chapter_id, "reviewing");
 
         logger.progress("draft:review 2/2 写入生成记录");
         const run = runRepository.create({
@@ -206,6 +209,7 @@ export class DraftService {
           reviewNotes: input.notes ?? draft.review_notes,
           reviewReport
         });
+        chapterRepository.updateStatus(draft.chapter_id, "reviewing");
 
         const run = runRepository.create({
           projectId: draft.project_id,
@@ -257,10 +261,18 @@ export class DraftService {
 
       logger.progress("draft:review 3/3 导出 Final Markdown");
       const chapterService = new ChapterService(this.context);
-      const exportResult = await chapterService.exportChapter({
-        chapterId: draft.chapter_id,
-        source: "final"
-      });
+      let exportResult;
+      try {
+        exportResult = await chapterService.exportChapter({
+          chapterId: draft.chapter_id,
+          source: "final"
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Approve completed for draft ${input.draftId}, but final export failed: ${message}`
+        );
+      }
 
       logger.success(
         `draft:review action=approve draft=${input.draftId} export=${exportResult.exportPath}`

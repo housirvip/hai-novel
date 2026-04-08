@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   createWorkspace,
@@ -40,6 +41,7 @@ test("ChapterService 与 DraftService 可以完成导出和 review 闭环", asyn
   });
   assert.equal(hasWorkspaceFile(workspace, "exports", "chapter-001-plan.md"), true);
   assert.equal(planResult.plan.status, "active");
+  assert.equal(chapterService.showChapter(chapter.id).chapter.status, "plan_ready");
 
   const draftWriteResult = await draftService.writeDraft({
     projectId: project.id,
@@ -47,6 +49,7 @@ test("ChapterService 与 DraftService 可以完成导出和 review 闭环", asyn
   });
   assert.equal(hasWorkspaceFile(workspace, "exports", "chapter-001-draft.md"), true);
   assert.equal(draftWriteResult.draft.plan_id, planResult.plan.id);
+  assert.equal(chapterService.showChapter(chapter.id).chapter.status, "drafting");
 
   const checkResult = await draftService.reviewDraft({
     draftId: draftWriteResult.draft.id,
@@ -54,6 +57,7 @@ test("ChapterService 与 DraftService 可以完成导出和 review 闭环", asyn
   });
   assert.equal(checkResult.action, "check");
   assert.equal(checkResult.issues.length > 0, true);
+  assert.equal(chapterService.showChapter(chapter.id).chapter.status, "reviewing");
 
   const fixResult = await draftService.reviewDraft({
     draftId: draftWriteResult.draft.id,
@@ -64,6 +68,7 @@ test("ChapterService 与 DraftService 可以完成导出和 review 闭环", asyn
   assert.equal(fixResult.draft.draft_text.includes("Mock 输出"), false);
   assert.match(fixResult.draft.draft_text, /增强结尾钩子/);
   assert.equal(hasWorkspaceFile(workspace, "exports", "chapter-001-draft.md"), true);
+  assert.equal(chapterService.showChapter(chapter.id).chapter.status, "reviewing");
 
   const approveResult = await draftService.reviewDraft({
     draftId: draftWriteResult.draft.id,
@@ -75,6 +80,7 @@ test("ChapterService 与 DraftService 可以完成导出和 review 闭环", asyn
   const chapterDetail = chapterService.showChapter(chapter.id);
   assert.equal(chapterDetail.chapter.approved_draft_id, draftWriteResult.draft.id);
   assert.equal((chapterDetail.chapter.final_text ?? "").length > 0, true);
+  assert.equal(chapterDetail.chapter.status, "done");
 
   const finalExport = await chapterService.exportChapter({
     chapterId: chapter.id,
@@ -627,6 +633,65 @@ test("approve 过程中若生成记录写入失败，不会留下部分已提交
     assert.equal(chapterAfterFailure?.approved_draft_id ?? null, null);
     assert.equal(draftAfterFailure?.status, "generated");
     assert.equal(snapshots.length, 0);
+  } finally {
+    database.close();
+  }
+});
+
+test("approve 成功但 final 导出失败时，会返回可区分的错误语义且保留正式结果", async () => {
+  const workspace = createWorkspace("hai-novel-approve-export-");
+  const context = await initWorkspace(workspace);
+
+  const { ProjectService } = await importDist("app/services/project-service.js");
+  const { ChapterService } = await importDist("app/services/chapter-service.js");
+  const { DraftService } = await importDist("app/services/draft-service.js");
+  const { ChapterStateSnapshotRepository } = await importDist(
+    "db/repositories/chapter-state-snapshot-repository.js"
+  );
+
+  const projectService = new ProjectService(context);
+  const chapterService = new ChapterService(context);
+  const draftService = new DraftService(context);
+
+  const project = projectService.createProject({
+    name: "审批导出失败语义测试",
+    genre: "仙侠"
+  });
+  const chapter = chapterService.createChapter({
+    projectId: project.id,
+    title: "第001章 雨夜入宗",
+    summary: "林渡夜入山门"
+  });
+
+  await chapterService.generatePlan({
+    projectId: project.id,
+    chapterId: chapter.id
+  });
+  const draftResult = await draftService.writeDraft({
+    projectId: project.id,
+    chapterId: chapter.id
+  });
+
+  const blockedPath = path.join(workspace, "exports-blocker");
+  writeFileSync(blockedPath, "occupied", "utf8");
+  context.exportsDir = blockedPath;
+
+  await assert.rejects(
+    draftService.reviewDraft({
+      draftId: draftResult.draft.id,
+      action: "approve"
+    }),
+    /Approve completed for draft .* final export failed/
+  );
+
+  const chapterAfterApprove = chapterService.showChapter(chapter.id);
+  assert.equal(chapterAfterApprove.chapter.status, "done");
+  assert.equal(chapterAfterApprove.chapter.approved_draft_id, draftResult.draft.id);
+
+  const { database } = await openWorkspaceDatabase(workspace);
+  try {
+    const snapshotRepository = new ChapterStateSnapshotRepository(database);
+    assert.equal(snapshotRepository.findAllByChapterId(chapter.id).length, 1);
   } finally {
     database.close();
   }

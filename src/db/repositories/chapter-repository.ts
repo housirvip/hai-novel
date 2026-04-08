@@ -73,12 +73,32 @@ export class ChapterRepository {
     return statement.get(id);
   }
 
+  // 章节主流程状态用于 CLI 展示写作阶段，因此需要在 plan / draft / review / done 之间显式推进。
+  updateStatus(chapterId: number, status: string): ChapterRecord {
+    this.database
+      .prepare<[string, number], Database.RunResult>(
+        `UPDATE chapters
+         SET status = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      )
+      .run(status, chapterId);
+
+    const updated = this.findById(chapterId);
+    if (!updated) {
+      throw new Error(`Failed to reload chapter ${chapterId} after status update.`);
+    }
+
+    return updated;
+  }
+
   approveDraft(chapterId: number, draftId: number, finalText: string): ChapterRecord {
     this.database
       .prepare<[string, number, number], Database.RunResult>(
         `UPDATE chapters
          SET final_text = ?,
              approved_draft_id = ?,
+             status = 'done',
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`
       )

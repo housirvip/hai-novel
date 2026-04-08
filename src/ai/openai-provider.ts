@@ -1,4 +1,5 @@
 import type { AIProvider, GenerateTextInput, GenerateTextResult } from "./provider.js";
+import { parseJsonResponse } from "./response-utils.js";
 
 export interface OpenAIProviderOptions {
   /** OpenAI API Key。 */
@@ -51,7 +52,7 @@ export class OpenAIProvider implements AIProvider {
     });
 
     const requestId = response.headers.get("x-request-id") ?? undefined;
-    const payload = (await response.json()) as OpenAIResponsePayload;
+    const payload = await parseJsonResponse<OpenAIResponsePayload>(response, "OpenAI", requestId);
 
     if (!response.ok) {
       const message = payload.error?.message ?? `OpenAI request failed with status ${response.status}.`;

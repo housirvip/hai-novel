@@ -85,6 +85,7 @@ export class ChapterService {
     try {
       const planRepository = new ChapterPlanRepository(database);
       const runRepository = new GenerationRunRepository(database);
+      const chapterRepository = new ChapterRepository(database);
       const contextBuilder = new ChapterContextBuilder(database);
 
       logger.progress("chapter:plan 1/6 构建统一上下文");
@@ -108,6 +109,7 @@ export class ChapterService {
         authorIntent: input.intent,
         planText: generatedPlan.text
       });
+      chapterRepository.updateStatus(input.chapterId, "plan_ready");
 
       logger.progress("chapter:plan 3/6 写入生成记录");
       const run = runRepository.create({
@@ -195,6 +197,12 @@ export class ChapterService {
             ? draftRepository.findById(input.draftId)
             : draftRepository.findLatestByChapterId(input.chapterId);
         if (!draftMeta) {
+          const latestAnyDraft = draftRepository.findLatestAnyStatusByChapterId(input.chapterId);
+          if (latestAnyDraft?.status === "dropped") {
+            throw new Error(
+              `No draft found for chapter ${input.chapterId}. Latest draft was dropped. Run \`novel draft write\` first or specify another draft.`
+            );
+          }
           throw new Error(`No draft found for chapter ${input.chapterId}.`);
         }
         if (draftMeta.chapter_id !== input.chapterId) {

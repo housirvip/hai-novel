@@ -4,6 +4,40 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createWorkspace, importDist, runBuiltCli, runBuiltCliResult } from "./helpers.mjs";
 
+test("remote provider 遇到非 JSON 响应时会抛出更明确错误", async () => {
+  const { OpenAIProvider } = await importDist("ai/openai-provider.js");
+  const originalFetch = global.fetch;
+
+  global.fetch = async () =>
+    new Response("<html>bad gateway</html>", {
+      status: 502,
+      headers: {
+        "content-type": "text/html",
+        "x-request-id": "req_test_non_json"
+      }
+    });
+
+  try {
+    const provider = new OpenAIProvider({
+      apiKey: "test-key",
+      baseUrl: "https://api.openai.com",
+      model: "gpt-test"
+    });
+
+    await assert.rejects(
+      provider.generateText({
+        taskType: "chapter_plan",
+        systemPrompt: "system",
+        prompt: "prompt",
+        contextText: "context"
+      }),
+      /non-JSON response/
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("CLI 会为常见失败场景输出更明确的错误类型和 hint", () => {
   const workspace = createWorkspace("hai-novel-error-");
 
@@ -366,6 +400,57 @@ test("Markdown 回写目标不匹配和文件不存在时会返回明确错误�
   assert.match(mismatchResult.output, /chapter_id/);
 });
 
+test("只有 dropped draft 时，state chapter-preview 会给出更准确提示", () => {
+  const workspace = createWorkspace("hai-novel-dropped-preview-error-");
+
+  runBuiltCli(workspace, ["init"]);
+  runBuiltCli(workspace, [
+    "project",
+    "create",
+    "--name",
+    "丢弃预览提示测试",
+    "--genre",
+    "仙侠"
+  ]);
+  runBuiltCli(workspace, [
+    "chapter",
+    "create",
+    "--project",
+    "1",
+    "--title",
+    "第001章",
+    "--summary",
+    "章节摘要"
+  ]);
+  runBuiltCli(workspace, [
+    "chapter",
+    "plan",
+    "--project",
+    "1",
+    "--chapter",
+    "1"
+  ]);
+  runBuiltCli(workspace, [
+    "draft",
+    "write",
+    "--project",
+    "1",
+    "--chapter",
+    "1"
+  ]);
+  runBuiltCli(workspace, ["draft", "drop", "--draft", "1"]);
+
+  const previewResult = runBuiltCliResult(workspace, [
+    "state",
+    "chapter-preview",
+    "--chapter",
+    "1"
+  ]);
+  assert.equal(previewResult.status, 1);
+  assert.match(previewResult.output, /\[MISSING_DRAFT\]/);
+  assert.match(previewResult.output, /Latest draft was dropped/);
+});
+
 test("核心命令帮助文本会展示示例", () => {
   const workspace = createWorkspace("hai-novel-help-");
 
@@ -429,4 +514,15 @@ test("错误分类器会覆盖新增的导入目标错误和 AI 输出错误", a
   const aiOutputError = presentCliError(new Error("State extraction returned invalid JSON."));
   assert.equal(aiOutputError.code, "AI_OUTPUT");
   assert.match(aiOutputError.hint ?? "", /JSON/);
+
+  const nonJsonProviderError = presentCliError(
+    new Error("OpenAI provider returned a non-JSON response. status=502 preview=<html>")
+  );
+  assert.equal(nonJsonProviderError.code, "AI_OUTPUT");
+
+  const postApproveExportError = presentCliError(
+    new Error("Approve completed for draft 1, but final export failed: EEXIST")
+  );
+  assert.equal(postApproveExportError.code, "POST_APPROVE_EXPORT");
+  assert.match(postApproveExportError.hint ?? "", /chapter export/);
 });

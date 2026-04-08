@@ -93,6 +93,33 @@ export class ChapterDraftRepository {
     return statement.get(chapterId);
   }
 
+  // 某些提示场景需要知道“是否存在最新草稿但它已被 dropped”，因此保留一个不过滤状态的读取方法。
+  findLatestAnyStatusByChapterId(chapterId: number): ChapterDraftRecord | undefined {
+    const statement = this.database.prepare<[number], ChapterDraftRecord>(
+      `SELECT
+         id,
+         project_id,
+         chapter_id,
+         plan_id,
+         draft_text,
+         status,
+         source_version,
+         last_export_path,
+         last_exported_at,
+         last_imported_at,
+         updated_from,
+         review_notes,
+         review_report,
+         created_at,
+         updated_at
+       FROM chapter_drafts
+       WHERE chapter_id = ?
+       ORDER BY id DESC
+       LIMIT 1`
+    );
+    return statement.get(chapterId);
+  }
+
   updateReview(
     draftId: number,
     input: {
