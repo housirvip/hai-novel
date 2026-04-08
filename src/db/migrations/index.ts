@@ -129,7 +129,7 @@ export const migrations: MigrationDefinition[] = [
         outline_id INTEGER,
         title TEXT NOT NULL,
         summary TEXT,
-        status TEXT NOT NULL DEFAULT 'planned',
+        status TEXT NOT NULL DEFAULT 'created',
         final_text TEXT,
         approved_draft_id INTEGER,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -399,6 +399,20 @@ export const migrations: MigrationDefinition[] = [
 
       CREATE INDEX IF NOT EXISTS idx_character_items_end_chapter_id
       ON character_items(end_chapter_id);
+    `
+  },
+  {
+    id: "006_rename_legacy_chapter_statuses",
+    sql: `
+      -- 把旧章节状态值迁移为新命名，保证已有工作区不会继续混用 planned / plan_ready。
+      -- 这里只处理 chapters.status，避免误改 hook_chapter_links 等仍然合法使用 planned 的语义。
+      UPDATE chapters
+      SET status = 'created'
+      WHERE status = 'planned';
+
+      UPDATE chapters
+      SET status = 'planning'
+      WHERE status = 'plan_ready';
     `
   }
 ];

@@ -41,7 +41,7 @@ test("ChapterService 与 DraftService 可以完成导出和 review 闭环", asyn
   });
   assert.equal(hasWorkspaceFile(workspace, "exports", "chapter-001-plan.md"), true);
   assert.equal(planResult.plan.status, "active");
-  assert.equal(chapterService.showChapter(chapter.id).chapter.status, "plan_ready");
+  assert.equal(chapterService.showChapter(chapter.id).chapter.status, "planning");
 
   const draftWriteResult = await draftService.writeDraft({
     projectId: project.id,

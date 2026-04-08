@@ -109,7 +109,7 @@ export class ChapterService {
         authorIntent: input.intent,
         planText: generatedPlan.text
       });
-      chapterRepository.updateStatus(input.chapterId, "plan_ready");
+      chapterRepository.updateStatus(input.chapterId, "planning");
 
       logger.progress("chapter:plan 3/6 写入生成记录");
       const run = runRepository.create({

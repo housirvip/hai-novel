@@ -476,8 +476,8 @@ V1 推荐最小可用表结构如下。
 
 `status` 可先支持：
 
-- `planned`
-- `plan_ready`
+- `created`
+- `planning`
 - `drafting`
 - `reviewing`
 - `done`

@@ -125,6 +125,7 @@ npm run dev -- draft review --draft 1 --action approve
 - `check` 只汇报问题，不改写正文
 - `fix` 会生成新的修订 draft，但不会更新正式状态
 - 只有 `approve` 才会把 draft 变成 final，并写入正式状态快照
+- 若 `approve` 后 final Markdown 导出失败，系统会明确提示“审批已成功，仅导出失败”；这时可单独重跑 `chapter export --source final`
 
 ### 7. 导出后手工修改并回写
 
@@ -148,6 +149,28 @@ npm run dev -- draft import --draft 1 --input exports/chapter-001-draft.md --for
 - `exports/chapter-001-plan.md`
 - `exports/chapter-001-draft.md`
 - `exports/chapter-001-final.md`
+
+### 8. 章节状态流转
+
+章节会在主流程里自动推进状态：
+
+- `created`：刚创建章节
+- `planning`：已生成章节 plan
+- `drafting`：已生成 draft
+- `reviewing`：已执行 `check` 或 `fix`
+- `done`：已 `approve` 并写入正式文稿
+
+可通过以下命令查看：
+
+```bash
+npm run dev -- chapter show --id 1
+```
+
+### 9. dropped 草稿的默认行为
+
+- `draft drop` 后，该草稿不会再被默认的 `chapter export --source draft` 选中
+- `state chapter-preview` 默认也不会再使用被 dropped 的草稿
+- 如果某章最新草稿已经被 dropped，CLI 会明确提示，而不是继续拿这份稿件参与后续流程
 
 ## 常用命令
 
@@ -306,6 +329,7 @@ npm run dev -- state show --project 1 --chapter 1
 说明：
 
 - `state chapter-preview` 会基于最新 draft 或 final 预览“如果现在提取状态，会得到什么”
+- 若默认最新草稿已经被 `drop`，命令会提示你先重新生成草稿，或显式传 `--draft <id>`
 - `state approve-sync` 会对已有正式章节重建状态快照
 - `state show` 会展示正式快照；其中物品状态当前来自 `chapter_state_snapshots.raw_payload`
 

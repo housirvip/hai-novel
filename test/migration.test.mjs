@@ -21,7 +21,8 @@ test("初始化可重复执行，且 generation_runs 包含模板快照字段", 
       "002_generation_runs_template_metadata",
       "003_markdown_roundtrip_metadata",
       "004_state_snapshot_tables",
-      "005_item_tables"
+      "005_item_tables",
+      "006_rename_legacy_chapter_statuses"
     ]);
 
     const columns = database
@@ -102,6 +103,10 @@ test("初始化可重复执行，且 generation_runs 包含模板快照字段", 
     assert.equal(characterItemColumns.includes("note"), true);
     assert.equal(characterItemColumns.includes("start_chapter_id"), true);
     assert.equal(characterItemColumns.includes("end_chapter_id"), true);
+
+    const chapterColumns = database.prepare("PRAGMA table_info(chapters)").all();
+    const statusColumn = chapterColumns.find((column) => column.name === "status");
+    assert.equal(statusColumn?.dflt_value, "'created'");
   } finally {
     database.close();
   }

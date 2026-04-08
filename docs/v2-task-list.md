@@ -287,6 +287,7 @@
 
 - 实际上已额外支持 `custom` provider
 - provider 配置解析、网络探测和错误提示已经统一收口
+- 远端 provider 遇到非 JSON 响应时，现已能返回更明确的错误语义
 
 验收标准：
 
@@ -339,6 +340,7 @@
 - 这一阶段采用轻量方案，不单独创建 `item_state_snapshots`
 - 物品正式状态先提取并写入 `chapter_state_snapshots.raw_payload`
 - 等后续确实需要跨章节直接查询物品历史时，再考虑把物品状态升格为独立表
+- `state chapter-preview` 默认不会再选用已 dropped 的草稿
 
 验收标准：
 
@@ -361,6 +363,12 @@
 交付物：
 
 - 完整的命令说明与日志体验
+
+当前补充说明：
+
+- README 已同步章节状态流转语义
+- README 已补 dropped 草稿默认行为
+- approve 成功但 final 导出失败时，CLI 和文档都能明确区分“审批成功”与“导出失败”
 
 验收标准：
 
