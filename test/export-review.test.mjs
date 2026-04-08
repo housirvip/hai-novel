@@ -422,11 +422,14 @@ test("draft approve 后会写入章节、人物、势力和钩子状态快照", 
     assert.equal(stateResult.characterSnapshots.length, 1);
     assert.equal(stateResult.factionSnapshots.length, 1);
     assert.equal(stateResult.hookSnapshots.length, 1);
+    assert.equal(stateResult.itemStates.length, 1);
     assert.match(stateResult.chapterSnapshots[0].summary ?? "", /物品提及 1 个/);
     assert.match(stateResult.chapterSnapshots[0].raw_payload ?? "", /"items"/);
     assert.match(stateResult.chapterSnapshots[0].raw_payload ?? "", /黑玉佩|item_id/);
     assert.equal(stateResult.hookSnapshots[0].progress_status, "advanced");
     assert.match(stateResult.characterSnapshots[0].status_summary ?? "", /林渡/);
+    assert.equal(stateResult.itemStates[0].item_name, "黑玉佩");
+    assert.equal(stateResult.itemStates[0].owner_character_name, "林渡");
   } finally {
     database.close();
   }

@@ -11,41 +11,13 @@ import { CharacterStateSnapshotRepository } from "../../db/repositories/characte
 import { FactionStateSnapshotRepository } from "../../db/repositories/faction-state-snapshot-repository.js";
 import { HookStateSnapshotRepository } from "../../db/repositories/hook-state-snapshot-repository.js";
 import type {
+  ExtractedChapterStatePayload,
   ChapterGenerationContext,
   ChapterStateSnapshotRecord,
   HookProgressStatus
 } from "../../domain/types/index.js";
 import { ChapterContextBuilder } from "./chapter-context-builder.js";
 import type { RuntimeContext } from "./context-service.js";
-
-interface ExtractedStatePayload {
-  chapter_summary: string;
-  characters: Array<{
-    character_id: number;
-    status_summary?: string;
-    location?: string;
-    goal?: string;
-    public_impression?: string;
-    internal_state?: string;
-  }>;
-  factions: Array<{
-    faction_id: number;
-    status_summary?: string;
-    power_shift?: string;
-    external_relation_summary?: string;
-  }>;
-  hooks: Array<{
-    hook_id: number;
-    progress_status: HookProgressStatus;
-    progress_note?: string;
-  }>;
-  items: Array<{
-    item_id: number;
-    owner_character_id?: number;
-    status_summary?: string;
-    location?: string;
-  }>;
-}
 
 /**
  * approve 之后的正式状态同步服务。
@@ -63,7 +35,7 @@ export class StateSyncService {
     draftId: number;
     finalText: string;
   }): Promise<{
-    payload: ExtractedStatePayload;
+    payload: ExtractedChapterStatePayload;
     rawOutput: string;
     prompt: string;
     model: string;
@@ -101,7 +73,7 @@ export class StateSyncService {
     projectId: number;
     chapterId: number;
     draftId: number;
-    payload: ExtractedStatePayload;
+    payload: ExtractedChapterStatePayload;
     rawOutput: string;
   }): {
     chapterSnapshot: ChapterStateSnapshotRecord;
@@ -173,8 +145,8 @@ export class StateSyncService {
   private parseExtractionPayload(
     rawOutput: string,
     context: ChapterGenerationContext
-  ): ExtractedStatePayload {
-    const parsed = JSON.parse(this.unwrapJson(rawOutput)) as Partial<ExtractedStatePayload>;
+  ): ExtractedChapterStatePayload {
+    const parsed = JSON.parse(this.unwrapJson(rawOutput)) as Partial<ExtractedChapterStatePayload>;
     if (!parsed || typeof parsed !== "object") {
       throw new Error("State extraction did not return a JSON object.");
     }
@@ -191,7 +163,7 @@ export class StateSyncService {
 
     const characters = Array.isArray(parsed.characters)
       ? parsed.characters.filter(
-          (item): item is ExtractedStatePayload["characters"][number] =>
+          (item): item is ExtractedChapterStatePayload["characters"][number] =>
             typeof item === "object" &&
             item !== null &&
             typeof item.character_id === "number" &&
@@ -201,7 +173,7 @@ export class StateSyncService {
 
     const factions = Array.isArray(parsed.factions)
       ? parsed.factions.filter(
-          (item): item is ExtractedStatePayload["factions"][number] =>
+          (item): item is ExtractedChapterStatePayload["factions"][number] =>
             typeof item === "object" &&
             item !== null &&
             typeof item.faction_id === "number" &&
@@ -211,7 +183,7 @@ export class StateSyncService {
 
     const hooks = Array.isArray(parsed.hooks)
       ? parsed.hooks.filter(
-          (item): item is ExtractedStatePayload["hooks"][number] =>
+          (item): item is ExtractedChapterStatePayload["hooks"][number] =>
             typeof item === "object" &&
             item !== null &&
             typeof item.hook_id === "number" &&
@@ -222,7 +194,7 @@ export class StateSyncService {
 
     const items = Array.isArray(parsed.items)
       ? parsed.items.filter(
-          (item): item is ExtractedStatePayload["items"][number] =>
+          (item): item is ExtractedChapterStatePayload["items"][number] =>
             typeof item === "object" &&
             item !== null &&
             typeof item.item_id === "number" &&

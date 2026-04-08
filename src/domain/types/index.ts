@@ -1522,6 +1522,115 @@ export interface StateShowResult {
   factionSnapshots: FactionStateSnapshotRecord[];
   /** 匹配到的钩子状态快照。 */
   hookSnapshots: HookStateSnapshotRecord[];
+  /** 从章节快照原始 JSON 中解析出的轻量物品状态结果。 */
+  itemStates: StateShowItemState[];
+}
+
+/**
+ * 状态查看时解析出的物品状态结果。
+ * 这里不是独立数据库表，而是从 `chapter_state_snapshots.raw_payload` 中提取出的轻量展示结构。
+ */
+export interface StateShowItemState {
+  /** 关联章节快照 ID。 */
+  chapter_snapshot_id: number;
+  /** 来源章节 ID。 */
+  chapter_id: number;
+  /** 物品 ID。 */
+  item_id: number;
+  /** 物品名称；查不到时可为空。 */
+  item_name: string | null;
+  /** 当前持有人角色 ID。 */
+  owner_character_id: number | null;
+  /** 当前持有人名称；查不到时可为空。 */
+  owner_character_name: string | null;
+  /** 物品状态摘要。 */
+  status_summary: string | null;
+  /** 当前地点。 */
+  location: string | null;
+}
+
+/**
+ * approve 或预览阶段的统一状态提取结果。
+ * 这份结构既可以用于正式落库前的预览，也可以作为写入 `chapter_state_snapshots.raw_payload` 的原始对象。
+ */
+export interface ExtractedChapterStatePayload {
+  /** 本章正式生效状态的摘要。 */
+  chapter_summary: string;
+  /** 本章发生变化的人物状态集合。 */
+  characters: Array<{
+    /** 角色 ID。 */
+    character_id: number;
+    /** 状态摘要。 */
+    status_summary?: string;
+    /** 当前地点。 */
+    location?: string;
+    /** 当前目标。 */
+    goal?: string;
+    /** 外部可见印象。 */
+    public_impression?: string;
+    /** 内在状态。 */
+    internal_state?: string;
+  }>;
+  /** 本章发生变化的势力状态集合。 */
+  factions: Array<{
+    /** 势力 ID。 */
+    faction_id: number;
+    /** 状态摘要。 */
+    status_summary?: string;
+    /** 权力变化。 */
+    power_shift?: string;
+    /** 对外关系摘要。 */
+    external_relation_summary?: string;
+  }>;
+  /** 本章推进到的钩子状态集合。 */
+  hooks: Array<{
+    /** 钩子 ID。 */
+    hook_id: number;
+    /** 推进状态。 */
+    progress_status: HookProgressStatus;
+    /** 推进说明。 */
+    progress_note?: string;
+  }>;
+  /** 本章提取到的关键物品状态集合。 */
+  items: Array<{
+    /** 物品 ID。 */
+    item_id: number;
+    /** 当前持有人角色 ID。 */
+    owner_character_id?: number;
+    /** 状态摘要。 */
+    status_summary?: string;
+    /** 当前地点。 */
+    location?: string;
+  }>;
+}
+
+/**
+ * 章节状态预览输入。
+ * 用于在真正 approve 前，预览本章最新正文将会影响哪些状态。
+ */
+export interface PreviewChapterStateInput {
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 可选草稿 ID；传入时优先用这版草稿预览。 */
+  draftId?: number;
+}
+
+/**
+ * 章节状态预览结果。
+ */
+export interface ChapterStatePreviewResult {
+  /** 章节 ID。 */
+  chapterId: number;
+  /** 所属项目 ID。 */
+  projectId: number;
+  /** 使用的来源类型。 */
+  sourceType: "draft" | "final";
+  /** 作为预览来源的草稿 ID；若使用 final 则为空。 */
+  sourceDraftId: number | null;
+  /** 状态提取结果。 */
+  payload: ExtractedChapterStatePayload;
+  /** 模型原始输出，便于排查提取结果。 */
+  rawOutput: string;
 }
 
 /**

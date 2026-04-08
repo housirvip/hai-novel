@@ -93,17 +93,26 @@ export class MockProvider implements AIProvider {
     });
 
     const items = itemMatches
-      .filter(([, , name]) => finalText.includes(name))
-      .map(([, id, name, ownerCharacterId, ownerName]) => ({
-        item_id: Number(id),
-        owner_character_id:
-          ownerCharacterId.trim().length > 0 &&
-          (ownerName.trim().length === 0 || finalText.includes(ownerName))
-            ? Number(ownerCharacterId)
-            : undefined,
-        status_summary: this.findMentionSummary(finalText, name),
-        location: ownerName.trim().length > 0 && finalText.includes(ownerName) ? `${ownerName}身边` : ""
-      }));
+      .filter(([, , name, , , note]) => {
+        const keywords = this.extractItemKeywords(name, note);
+        return keywords.some((keyword) => finalText.includes(keyword));
+      })
+      .map(([, id, name, ownerCharacterId, ownerName, note]) => {
+        const keywords = this.extractItemKeywords(name, note);
+        const matchedKeyword = keywords.find((keyword) => finalText.includes(keyword)) ?? name;
+
+        return {
+          item_id: Number(id),
+          owner_character_id:
+            ownerCharacterId.trim().length > 0 &&
+            (ownerName.trim().length === 0 || finalText.includes(ownerName))
+              ? Number(ownerCharacterId)
+              : undefined,
+          status_summary: this.findMentionSummary(finalText, matchedKeyword),
+          location:
+            ownerName.trim().length > 0 && finalText.includes(ownerName) ? `${ownerName}身边` : ""
+        };
+      });
 
     return JSON.stringify(
       {
@@ -116,6 +125,23 @@ export class MockProvider implements AIProvider {
       null,
       2
     );
+  }
+
+  private extractItemKeywords(name: string, note: string): string[] {
+    const keywords = new Set(
+      [name, note]
+        .flatMap((value) => value.split(/[，。！？；、\s]+/))
+        .map((value) => value.trim())
+        .filter((value) => value.length >= 2)
+    );
+
+    // 中文道具名在正文里常会退化成简称，例如“黑玉佩”后续只写“玉佩”。
+    if (name.trim().length >= 3) {
+      keywords.add(name.trim().slice(1));
+      keywords.add(name.trim().slice(-2));
+    }
+
+    return [...keywords].filter((value) => value.length >= 2);
   }
 
   private extractBlock(prompt: string, startMarker: string, endMarker: string): string {

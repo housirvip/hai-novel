@@ -259,3 +259,247 @@ test("可以管理物品及其人物持有关系", () => {
   assert.match(allLinksOutput, /第002章 暂交保管/);
   assert.match(allLinksOutput, /交由长老保管/);
 });
+
+test("state show 会展示章节快照里的轻量物品状态", () => {
+  const workspace = createWorkspace();
+
+  runNovel(workspace, ["init"]);
+  runNovel(workspace, [
+    "project",
+    "create",
+    "--name",
+    "状态物品展示测试",
+    "--genre",
+    "仙侠"
+  ]);
+  runNovel(workspace, [
+    "chapter",
+    "create",
+    "--project",
+    "1",
+    "--title",
+    "第001章 雨夜入宗",
+    "--summary",
+    "林渡夜入青岚宗，黑玉佩出现异动"
+  ]);
+  runNovel(workspace, [
+    "faction",
+    "add",
+    "--project",
+    "1",
+    "--name",
+    "青岚宗",
+    "--type",
+    "宗门"
+  ]);
+  runNovel(workspace, [
+    "character",
+    "add",
+    "--project",
+    "1",
+    "--name",
+    "林渡",
+    "--role",
+    "protagonist",
+    "--faction",
+    "1"
+  ]);
+  runNovel(workspace, [
+    "hook",
+    "add",
+    "--project",
+    "1",
+    "--title",
+    "黑玉佩的来历",
+    "--type",
+    "mystery",
+    "--summary",
+    "黑玉佩忽然发热",
+    "--target-chapter",
+    "1"
+  ]);
+  runNovel(workspace, [
+    "hook",
+    "bind",
+    "--project",
+    "1",
+    "--hook",
+    "1",
+    "--chapter",
+    "1",
+    "--type",
+    "setup",
+    "--planned-note",
+    "通过玉佩异动埋下疑团"
+  ]);
+  runNovel(workspace, [
+    "item",
+    "add",
+    "--project",
+    "1",
+    "--name",
+    "黑玉佩",
+    "--category",
+    "artifact"
+  ]);
+  runNovel(workspace, [
+    "character",
+    "item:add",
+    "--project",
+    "1",
+    "--character",
+    "1",
+    "--item",
+    "1",
+    "--type",
+    "carry",
+    "--note",
+    "林渡一直贴身携带"
+  ]);
+  runNovel(workspace, [
+    "chapter",
+    "plan",
+    "--project",
+    "1",
+    "--chapter",
+    "1",
+    "--intent",
+    "突出黑玉佩的异动"
+  ]);
+  runNovel(workspace, [
+    "draft",
+    "write",
+    "--project",
+    "1",
+    "--chapter",
+    "1"
+  ]);
+  runNovel(workspace, ["draft", "review", "--draft", "1", "--action", "fix"]);
+  runNovel(workspace, ["draft", "review", "--draft", "1", "--action", "approve"]);
+
+  const stateOutput = runNovel(workspace, ["state", "show", "--project", "1", "--chapter", "1"]);
+  assert.match(stateOutput, /黑玉佩/);
+  assert.match(stateOutput, /林渡/);
+});
+
+test("state chapter-preview 会预览本章最新草稿的状态变化", () => {
+  const workspace = createWorkspace();
+
+  runNovel(workspace, ["init"]);
+  runNovel(workspace, [
+    "project",
+    "create",
+    "--name",
+    "状态预览测试",
+    "--genre",
+    "仙侠"
+  ]);
+  runNovel(workspace, [
+    "chapter",
+    "create",
+    "--project",
+    "1",
+    "--title",
+    "第001章 雨夜入宗",
+    "--summary",
+    "林渡夜入青岚宗，黑玉佩出现异动"
+  ]);
+  runNovel(workspace, [
+    "faction",
+    "add",
+    "--project",
+    "1",
+    "--name",
+    "青岚宗",
+    "--type",
+    "宗门"
+  ]);
+  runNovel(workspace, [
+    "character",
+    "add",
+    "--project",
+    "1",
+    "--name",
+    "林渡",
+    "--role",
+    "protagonist",
+    "--faction",
+    "1"
+  ]);
+  runNovel(workspace, [
+    "hook",
+    "add",
+    "--project",
+    "1",
+    "--title",
+    "黑玉佩的来历",
+    "--type",
+    "mystery",
+    "--summary",
+    "黑玉佩忽然发热",
+    "--target-chapter",
+    "1"
+  ]);
+  runNovel(workspace, [
+    "hook",
+    "bind",
+    "--project",
+    "1",
+    "--hook",
+    "1",
+    "--chapter",
+    "1",
+    "--type",
+    "setup",
+    "--planned-note",
+    "通过玉佩异动埋下疑团"
+  ]);
+  runNovel(workspace, [
+    "item",
+    "add",
+    "--project",
+    "1",
+    "--name",
+    "黑玉佩",
+    "--category",
+    "artifact"
+  ]);
+  runNovel(workspace, [
+    "character",
+    "item:add",
+    "--project",
+    "1",
+    "--character",
+    "1",
+    "--item",
+    "1",
+    "--type",
+    "carry",
+    "--note",
+    "林渡一直贴身携带"
+  ]);
+  runNovel(workspace, [
+    "chapter",
+    "plan",
+    "--project",
+    "1",
+    "--chapter",
+    "1",
+    "--intent",
+    "突出黑玉佩异动和山门压迫感"
+  ]);
+  runNovel(workspace, [
+    "draft",
+    "write",
+    "--project",
+    "1",
+    "--chapter",
+    "1"
+  ]);
+  runNovel(workspace, ["draft", "review", "--draft", "1", "--action", "fix"]);
+
+  const previewOutput = runNovel(workspace, ["state", "chapter-preview", "--chapter", "1"]);
+  assert.match(previewOutput, /chapter_summary/);
+  assert.match(previewOutput, /hook_id/);
+  assert.match(previewOutput, /item_id/);
+});
