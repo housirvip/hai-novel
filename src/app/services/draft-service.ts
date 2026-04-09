@@ -64,6 +64,7 @@ export class DraftService {
       if (!plan) {
         throw new Error(`No plan found for chapter ${input.chapterId}. Run \`novel chapter plan\` first.`);
       }
+      this.assertPlanBelongsToContext(plan, input.projectId, input.chapterId);
 
       logger.progress("draft:write 3/5 组织 prompt 与任务要求");
       const templateMetadata = getPromptTemplateMetadata("draft-write");
@@ -283,13 +284,13 @@ export class DraftService {
         `draft:review action=approve draft=${input.draftId} export=${exportResult.exportPath}`
       );
 
-        return {
-          action: input.action,
-          draft: approvalResult.approvedDraft,
-          issues,
-          generationRunId: approvalResult.generationRunId,
-          exportPath: exportResult.exportPath
-        };
+      return {
+        action: input.action,
+        draft: approvalResult.approvedDraft,
+        issues,
+        generationRunId: approvalResult.generationRunId,
+        exportPath: exportResult.exportPath
+      };
     } finally {
       database.close();
     }
@@ -479,6 +480,22 @@ export class DraftService {
 
     const activePlan = planRepository.findActiveByChapterId(chapterId);
     chapterRepository.updateStatus(chapterId, activePlan ? "planning" : "created");
+  }
+
+  private assertPlanBelongsToContext(
+    plan: { id: number; project_id: number; chapter_id: number },
+    projectId: number,
+    chapterId: number
+  ): void {
+    // 指定 plan 写稿时，必须保证 plan 与当前 project/chapter 完全一致，
+    // 否则 AI 会在错误章节上下文里消费另一章的规划。
+    if (plan.project_id !== projectId) {
+      throw new Error(`Plan ${plan.id} does not belong to project ${projectId}.`);
+    }
+
+    if (plan.chapter_id !== chapterId) {
+      throw new Error(`Plan ${plan.id} does not belong to chapter ${chapterId}.`);
+    }
   }
 
   private resolveChapterStatusFromLatestDraft(draft: ChapterDraftRecord): string {

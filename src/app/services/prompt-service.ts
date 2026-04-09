@@ -59,6 +59,7 @@ export class PromptService {
       if (!plan) {
         throw new Error(`No plan found for chapter ${input.chapterId}.`);
       }
+      this.assertPlanBelongsToContext(plan, input.projectId, input.chapterId);
 
       return {
         template: getPromptTemplateMetadata("draft-write"),
@@ -73,6 +74,21 @@ export class PromptService {
       };
     } finally {
       database.close();
+    }
+  }
+
+  private assertPlanBelongsToContext(
+    plan: { id: number; project_id: number; chapter_id: number },
+    projectId: number,
+    chapterId: number
+  ): void {
+    // prompt 预览也要与真实执行保持一致，避免作者看到的不是当前章节真实会用到的 plan。
+    if (plan.project_id !== projectId) {
+      throw new Error(`Plan ${plan.id} does not belong to project ${projectId}.`);
+    }
+
+    if (plan.chapter_id !== chapterId) {
+      throw new Error(`Plan ${plan.id} does not belong to chapter ${chapterId}.`);
     }
   }
 

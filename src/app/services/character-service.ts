@@ -1,5 +1,6 @@
 import { createDatabase } from "../../db/client.js";
 import { CharacterRepository } from "../../db/repositories/character-repository.js";
+import { FactionRepository } from "../../db/repositories/faction-repository.js";
 import type {
   CharacterListItem,
   CharacterRecord,
@@ -17,7 +18,22 @@ export class CharacterService {
     // 当前阶段按“每次命令打开一次数据库”的方式实现，简单也更稳定。
     const database = createDatabase(this.context.dbPath);
     try {
+      const factionRepository = new FactionRepository(database);
       const repository = new CharacterRepository(database);
+
+      // 角色会直接引用主归属势力；这里先挡住跨项目引用，
+      // 避免当前项目的人物卡错误挂到另一部作品的势力名下。
+      if (input.factionId !== undefined) {
+        const faction = factionRepository.findById(input.factionId);
+        if (!faction) {
+          throw new Error(`Faction ${input.factionId} not found.`);
+        }
+
+        if (faction.project_id !== input.projectId) {
+          throw new Error(`Faction ${faction.id} does not belong to project ${input.projectId}.`);
+        }
+      }
+
       const character = repository.create(input);
       logger.success(`character:add id=${character.id} name="${character.name}"`);
       return character;

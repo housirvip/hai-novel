@@ -15,6 +15,7 @@ import { ChapterPlanRepository } from "../../db/repositories/chapter-plan-reposi
 import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
 import { GenerationRunRepository } from "../../db/repositories/generation-run-repository.js";
 import { HookChapterLinkRepository } from "../../db/repositories/hook-chapter-link-repository.js";
+import { OutlineRepository } from "../../db/repositories/outline-repository.js";
 import { ProjectRepository } from "../../db/repositories/project-repository.js";
 import type {
   ChapterDraftRecord,
@@ -42,7 +43,22 @@ export class ChapterService {
 
     const database = createDatabase(this.context.dbPath);
     try {
+      const outlineRepository = new OutlineRepository(database);
       const repository = new ChapterRepository(database);
+
+      // 章节可以挂在某个大纲节点下，但节点必须与章节属于同一项目，
+      // 否则章节上下文在后续生成时会把别的作品结构拼进来。
+      if (input.outlineId !== undefined) {
+        const outline = outlineRepository.findById(input.outlineId);
+        if (!outline) {
+          throw new Error(`Outline ${input.outlineId} not found.`);
+        }
+
+        if (outline.project_id !== input.projectId) {
+          throw new Error(`Outline ${outline.id} does not belong to project ${input.projectId}.`);
+        }
+      }
+
       const chapter = repository.create(input);
       logger.success(`chapter:create id=${chapter.id} title="${chapter.title}"`);
       return chapter;

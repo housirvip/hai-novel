@@ -23,6 +23,9 @@ export class OutlineService {
     const database = createDatabase(this.context.dbPath);
     try {
       const repository = new OutlineRepository(database);
+      if (input.parentId !== undefined) {
+        this.assertOutlineIdBelongsToProject(repository, input.parentId, input.projectId);
+      }
       const outline = repository.create(input);
       logger.success(`outline:add id=${outline.id} title="${outline.title}"`);
       return outline;
@@ -104,6 +107,11 @@ export class OutlineService {
       const project = projectRepository.findById(input.projectId);
       if (!project) {
         throw new Error(`Project ${input.projectId} not found.`);
+      }
+
+      // 用户显式指定父节点时，需要保证仍挂在当前项目的大纲树下。
+      if (input.parentId !== undefined) {
+        this.assertOutlineIdBelongsToProject(outlineRepository, input.parentId, input.projectId);
       }
 
       const storyOutline = outlineRepository.findFirstByProjectIdAndType(input.projectId, "story");
@@ -277,5 +285,20 @@ export class OutlineService {
         input.storyOutline.outcome ??
         "本卷结尾应形成阶段性结果，并为下一卷留下新的局面变化。"
     };
+  }
+
+  private assertOutlineIdBelongsToProject(
+    repository: OutlineRepository,
+    outlineId: number,
+    projectId: number
+  ): void {
+    const outline = repository.findById(outlineId);
+    if (!outline) {
+      throw new Error(`Outline ${outlineId} not found.`);
+    }
+
+    if (outline.project_id !== projectId) {
+      throw new Error(`Outline ${outline.id} does not belong to project ${projectId}.`);
+    }
   }
 }

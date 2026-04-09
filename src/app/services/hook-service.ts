@@ -22,7 +22,19 @@ export class HookService {
 
     const database = createDatabase(this.context.dbPath);
     try {
+      const chapterRepository = new ChapterRepository(database);
       const repository = new StoryHookRepository(database);
+
+      // 钩子的目标回收章节是明确的章节引用，必须校验项目归属，
+      // 避免把别项目章节当成当前作品的回收目标。
+      if (input.targetChapterId !== undefined) {
+        this.assertChapterIdBelongsToProject(
+          chapterRepository,
+          input.targetChapterId,
+          input.projectId
+        );
+      }
+
       const hook = repository.create(input);
       logger.success(`hook:add id=${hook.id} title="${hook.title}"`);
       return hook;

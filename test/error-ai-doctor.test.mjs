@@ -277,7 +277,7 @@ test("边界异常场景会返回更明确的错误提示", () => {
   assert.match(missingOutlineResult.output, /outline set/);
 });
 
-test("跨项目关联命令会拒绝把对象串到错误项目下", () => {
+test("跨项目或跨章节关联命令会拒绝把对象串到错误上下文下", () => {
   const workspace = createWorkspace("hai-novel-project-mismatch-");
 
   runBuiltCli(workspace, ["init"]);
@@ -288,7 +288,12 @@ test("跨项目关联命令会拒绝把对象串到错误项目下", () => {
   runBuiltCli(workspace, ["character", "add", "--project", "2", "--name", "顾寒"]);
   runBuiltCli(workspace, ["faction", "add", "--project", "2", "--name", "青岚宗"]);
   runBuiltCli(workspace, ["item", "add", "--project", "2", "--name", "黑玉佩"]);
+  runBuiltCli(workspace, ["outline", "add", "--project", "2", "--type", "volume", "--title", "异项目分卷"]);
   runBuiltCli(workspace, ["chapter", "create", "--project", "2", "--title", "第001章"]);
+  runBuiltCli(workspace, ["chapter", "create", "--project", "1", "--title", "第001章 主线"]);
+  runBuiltCli(workspace, ["chapter", "create", "--project", "1", "--title", "第002章 支线"]);
+  runBuiltCli(workspace, ["chapter", "plan", "--project", "1", "--chapter", "2"]);
+  runBuiltCli(workspace, ["chapter", "plan", "--project", "1", "--chapter", "3"]);
   runBuiltCli(workspace, ["hook", "add", "--project", "1", "--title", "玉佩异动", "--type", "mystery"]);
 
   const relationResult = runBuiltCliResult(workspace, [
@@ -352,6 +357,108 @@ test("跨项目关联命令会拒绝把对象串到错误项目下", () => {
   assert.equal(hookBindResult.status, 1);
   assert.match(hookBindResult.output, /\[DATA_MISMATCH\]/);
   assert.match(hookBindResult.output, /Chapter 1 does not belong to project 1/);
+
+  const characterFactionResult = runBuiltCliResult(workspace, [
+    "character",
+    "add",
+    "--project",
+    "1",
+    "--name",
+    "沈昭",
+    "--faction",
+    "1"
+  ]);
+  assert.equal(characterFactionResult.status, 1);
+  assert.match(characterFactionResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(characterFactionResult.output, /Faction 1 does not belong to project 1/);
+
+  const chapterOutlineResult = runBuiltCliResult(workspace, [
+    "chapter",
+    "create",
+    "--project",
+    "1",
+    "--title",
+    "错误关联章节",
+    "--outline",
+    "1"
+  ]);
+  assert.equal(chapterOutlineResult.status, 1);
+  assert.match(chapterOutlineResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(chapterOutlineResult.output, /Outline 1 does not belong to project 1/);
+
+  const outlineParentResult = runBuiltCliResult(workspace, [
+    "outline",
+    "add",
+    "--project",
+    "1",
+    "--type",
+    "scene",
+    "--title",
+    "错误父节点",
+    "--parent",
+    "1"
+  ]);
+  assert.equal(outlineParentResult.status, 1);
+  assert.match(outlineParentResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(outlineParentResult.output, /Outline 1 does not belong to project 1/);
+
+  const volumeParentResult = runBuiltCliResult(workspace, [
+    "volume",
+    "plan",
+    "--project",
+    "1",
+    "--title",
+    "错误分卷",
+    "--parent",
+    "1"
+  ]);
+  assert.equal(volumeParentResult.status, 1);
+  assert.match(volumeParentResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(volumeParentResult.output, /Outline 1 does not belong to project 1/);
+
+  const hookTargetResult = runBuiltCliResult(workspace, [
+    "hook",
+    "add",
+    "--project",
+    "1",
+    "--title",
+    "跨项目回收",
+    "--type",
+    "mystery",
+    "--target-chapter",
+    "1"
+  ]);
+  assert.equal(hookTargetResult.status, 1);
+  assert.match(hookTargetResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(hookTargetResult.output, /Chapter 1 does not belong to project 1/);
+
+  const draftPlanMismatchResult = runBuiltCliResult(workspace, [
+    "draft",
+    "write",
+    "--project",
+    "1",
+    "--chapter",
+    "2",
+    "--plan",
+    "2"
+  ]);
+  assert.equal(draftPlanMismatchResult.status, 1);
+  assert.match(draftPlanMismatchResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(draftPlanMismatchResult.output, /Plan 2 does not belong to chapter 2/);
+
+  const promptPlanMismatchResult = runBuiltCliResult(workspace, [
+    "prompt",
+    "draft-write",
+    "--project",
+    "1",
+    "--chapter",
+    "2",
+    "--plan",
+    "2"
+  ]);
+  assert.equal(promptPlanMismatchResult.status, 1);
+  assert.match(promptPlanMismatchResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(promptPlanMismatchResult.output, /Plan 2 does not belong to chapter 2/);
 });
 
 test("Markdown 回写版本冲突会返回明确错误提示", () => {
