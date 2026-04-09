@@ -196,6 +196,14 @@ export function presentCliError(error: unknown): PresentedCliError {
     };
   }
 
+  if (message.includes("does not belong to project")) {
+    return {
+      code: "DATA_MISMATCH",
+      message,
+      hint: "检查命令里的 `--project` 与关联对象 ID 是否来自同一项目，避免把人物、势力、物品、章节或钩子串到别的作品里。"
+    };
+  }
+
   if (
     message.includes("State extraction did not return a JSON object") ||
     message.includes("State extraction returned invalid JSON") ||

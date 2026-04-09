@@ -473,6 +473,7 @@ npm run dev -- chapter export --chapter 1 --source plan
 
 ```bash
 npm run dev -- chapter export --chapter 1 --source draft
+npm run dev -- chapter export --chapter 1 --source draft --draft 3
 ```
 
 导出 final：
@@ -485,6 +486,7 @@ npm run dev -- chapter export --chapter 1 --source final
 
 - `plan / draft / final` 都会导出 Markdown
 - `draft` 默认导出“最新且未 dropped”的草稿
+- 需要精确导出某一版 draft 时，可额外传 `--draft <id>`
 - `final` 只有在执行过 `approve` 后才存在
 
 ### 查看章节详情

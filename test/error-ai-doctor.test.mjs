@@ -277,6 +277,83 @@ test("边界异常场景会返回更明确的错误提示", () => {
   assert.match(missingOutlineResult.output, /outline set/);
 });
 
+test("跨项目关联命令会拒绝把对象串到错误项目下", () => {
+  const workspace = createWorkspace("hai-novel-project-mismatch-");
+
+  runBuiltCli(workspace, ["init"]);
+  runBuiltCli(workspace, ["project", "create", "--name", "项目一"]);
+  runBuiltCli(workspace, ["project", "create", "--name", "项目二"]);
+
+  runBuiltCli(workspace, ["character", "add", "--project", "1", "--name", "林渡"]);
+  runBuiltCli(workspace, ["character", "add", "--project", "2", "--name", "顾寒"]);
+  runBuiltCli(workspace, ["faction", "add", "--project", "2", "--name", "青岚宗"]);
+  runBuiltCli(workspace, ["item", "add", "--project", "2", "--name", "黑玉佩"]);
+  runBuiltCli(workspace, ["chapter", "create", "--project", "2", "--title", "第001章"]);
+  runBuiltCli(workspace, ["hook", "add", "--project", "1", "--title", "玉佩异动", "--type", "mystery"]);
+
+  const relationResult = runBuiltCliResult(workspace, [
+    "relation",
+    "character:add",
+    "--project",
+    "1",
+    "--from",
+    "1",
+    "--to",
+    "2",
+    "--type",
+    "enemy"
+  ]);
+  assert.equal(relationResult.status, 1);
+  assert.match(relationResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(relationResult.output, /Character 2 does not belong to project 1/);
+
+  const factionRelationResult = runBuiltCliResult(workspace, [
+    "relation",
+    "faction:add",
+    "--project",
+    "1",
+    "--character",
+    "1",
+    "--faction",
+    "1",
+    "--type",
+    "member"
+  ]);
+  assert.equal(factionRelationResult.status, 1);
+  assert.match(factionRelationResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(factionRelationResult.output, /Faction 1 does not belong to project 1/);
+
+  const characterItemResult = runBuiltCliResult(workspace, [
+    "character",
+    "item:add",
+    "--project",
+    "1",
+    "--character",
+    "1",
+    "--item",
+    "1"
+  ]);
+  assert.equal(characterItemResult.status, 1);
+  assert.match(characterItemResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(characterItemResult.output, /Item 1 does not belong to project 1/);
+
+  const hookBindResult = runBuiltCliResult(workspace, [
+    "hook",
+    "bind",
+    "--project",
+    "1",
+    "--hook",
+    "1",
+    "--chapter",
+    "1",
+    "--type",
+    "setup"
+  ]);
+  assert.equal(hookBindResult.status, 1);
+  assert.match(hookBindResult.output, /\[DATA_MISMATCH\]/);
+  assert.match(hookBindResult.output, /Chapter 1 does not belong to project 1/);
+});
+
 test("Markdown 回写版本冲突会返回明确错误提示", () => {
   const workspace = createWorkspace("hai-novel-import-conflict-");
 

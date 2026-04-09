@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -147,6 +147,60 @@ test("可以完成草稿生成、修订和转正导出", () => {
 
   assert.equal(existsSync(path.join(workspace, "exports", "chapter-001-draft.md")), true);
   assert.equal(existsSync(path.join(workspace, "exports", "chapter-001-final.md")), true);
+});
+
+test("chapter export --source draft 支持通过 --draft 指定导出某一版草稿", () => {
+  const workspace = createWorkspace();
+
+  runNovel(workspace, ["init"]);
+  runNovel(workspace, ["project", "create", "--name", "测试小说", "--genre", "仙侠"]);
+  runNovel(workspace, [
+    "chapter",
+    "create",
+    "--project",
+    "1",
+    "--title",
+    "第001章 雨夜入宗",
+    "--summary",
+    "主角带着异物进入宗门"
+  ]);
+  runNovel(workspace, [
+    "chapter",
+    "plan",
+    "--project",
+    "1",
+    "--chapter",
+    "1",
+    "--intent",
+    "突出悬念感"
+  ]);
+  runNovel(workspace, ["draft", "write", "--project", "1", "--chapter", "1"]);
+  runNovel(workspace, [
+    "draft",
+    "review",
+    "--draft",
+    "1",
+    "--action",
+    "fix",
+    "--notes",
+    "只修第一版"
+  ]);
+  runNovel(workspace, ["draft", "write", "--project", "1", "--chapter", "1"]);
+  runNovel(workspace, ["draft", "drop", "--draft", "2"]);
+
+  runNovel(workspace, [
+    "chapter",
+    "export",
+    "--chapter",
+    "1",
+    "--source",
+    "draft",
+    "--draft",
+    "1"
+  ]);
+
+  const exportedDraft = readFileSync(path.join(workspace, "exports", "chapter-001-draft.md"), "utf8");
+  assert.match(exportedDraft, /只修第一版/);
 });
 
 test("可以管理物品及其人物持有关系", () => {

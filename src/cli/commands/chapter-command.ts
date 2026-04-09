@@ -161,13 +161,17 @@ Examples:
       "Export source: plan|draft|final",
       parseChapterExportSource
     )
+    .option("--draft <id>", "Draft id used when source=draft", (value: string) =>
+      parseOptionalIntegerOption(value, "--draft")
+    )
     .action(async (options) => {
       await assertInitialized(process.cwd());
       const context = await loadRuntimeContext(process.cwd());
       const service = new ChapterService(context);
       const result = await service.exportChapter({
         chapterId: options.chapter,
-        source: options.source
+        source: options.source,
+        draftId: options.draft
       });
 
       console.table([
@@ -183,6 +187,7 @@ Examples:
       `
 Examples:
   novel chapter export --chapter 1 --source plan
+  novel chapter export --chapter 1 --source draft --draft 3
   novel chapter export --chapter 1 --source final`
     );
 }

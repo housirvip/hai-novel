@@ -1,4 +1,5 @@
 import { createDatabase } from "../../db/client.js";
+import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
 import { HookChapterLinkRepository } from "../../db/repositories/hook-chapter-link-repository.js";
 import { StoryHookRepository } from "../../db/repositories/story-hook-repository.js";
 import type {
@@ -78,6 +79,7 @@ export class HookService {
 
     const database = createDatabase(this.context.dbPath);
     try {
+      const chapterRepository = new ChapterRepository(database);
       const hookRepository = new StoryHookRepository(database);
       const linkRepository = new HookChapterLinkRepository(database);
 
@@ -85,6 +87,14 @@ export class HookService {
       if (!hook) {
         throw new Error(`Story hook ${input.hookId} not found.`);
       }
+
+      const chapter = chapterRepository.findById(input.chapterId);
+      if (!chapter) {
+        throw new Error(`Chapter ${input.chapterId} not found.`);
+      }
+
+      this.assertHookBelongsToProject(hook, input.projectId);
+      this.assertChapterBelongsToProject(chapter, input.projectId);
 
       const link = linkRepository.create(input);
       this.syncHookLifecycle(hookRepository, hook, input);
@@ -110,7 +120,35 @@ export class HookService {
 
     const database = createDatabase(this.context.dbPath);
     try {
+      const chapterRepository = new ChapterRepository(database);
       const repository = new StoryHookRepository(database);
+      const existingHook = repository.findById(input.hookId);
+      if (!existingHook) {
+        throw new Error(`Story hook ${input.hookId} not found.`);
+      }
+
+      if (input.startChapterId !== undefined) {
+        this.assertChapterIdBelongsToProject(
+          chapterRepository,
+          input.startChapterId,
+          existingHook.project_id
+        );
+      }
+      if (input.targetChapterId !== undefined) {
+        this.assertChapterIdBelongsToProject(
+          chapterRepository,
+          input.targetChapterId,
+          existingHook.project_id
+        );
+      }
+      if (input.endChapterId !== undefined) {
+        this.assertChapterIdBelongsToProject(
+          chapterRepository,
+          input.endChapterId,
+          existingHook.project_id
+        );
+      }
+
       const hook = repository.update(input);
       logger.success(`hook:update id=${hook.id} status=${hook.status}`);
       return hook;
@@ -154,5 +192,33 @@ export class HookService {
         logger.progress(`hook:bind auto-activate hook=${hook.id}`);
       }
     }
+  }
+
+  private assertHookBelongsToProject(hook: StoryHookRecord, projectId: number): void {
+    if (hook.project_id !== projectId) {
+      throw new Error(`Hook ${hook.id} does not belong to project ${projectId}.`);
+    }
+  }
+
+  private assertChapterBelongsToProject(
+    chapter: { id: number; project_id: number },
+    projectId: number
+  ): void {
+    if (chapter.project_id !== projectId) {
+      throw new Error(`Chapter ${chapter.id} does not belong to project ${projectId}.`);
+    }
+  }
+
+  private assertChapterIdBelongsToProject(
+    repository: ChapterRepository,
+    chapterId: number,
+    projectId: number
+  ): void {
+    const chapter = repository.findById(chapterId);
+    if (!chapter) {
+      throw new Error(`Chapter ${chapterId} not found.`);
+    }
+
+    this.assertChapterBelongsToProject(chapter, projectId);
   }
 }

@@ -1,4 +1,6 @@
 import { createDatabase } from "../../db/client.js";
+import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
+import { CharacterRepository } from "../../db/repositories/character-repository.js";
 import { CharacterItemRepository } from "../../db/repositories/character-item-repository.js";
 import { ItemRepository } from "../../db/repositories/item-repository.js";
 import type {
@@ -83,7 +85,17 @@ export class ItemService {
 
     const database = createDatabase(this.context.dbPath);
     try {
+      const characterRepository = new CharacterRepository(database);
+      const itemRepository = new ItemRepository(database);
+      const chapterRepository = new ChapterRepository(database);
       const repository = new CharacterItemRepository(database);
+
+      this.assertCharacterBelongsToProject(characterRepository, input.characterId, input.projectId);
+      this.assertItemBelongsToProject(itemRepository, input.itemId, input.projectId);
+      if (input.startChapterId !== undefined) {
+        this.assertChapterBelongsToProject(chapterRepository, input.startChapterId, input.projectId);
+      }
+
       const link = repository.create(input);
       logger.success(`character:item:add link=${link.id}`);
       return link;
@@ -122,12 +134,73 @@ export class ItemService {
 
     const database = createDatabase(this.context.dbPath);
     try {
+      const chapterRepository = new ChapterRepository(database);
       const repository = new CharacterItemRepository(database);
+      const current = repository.findById(input.linkId);
+      if (!current) {
+        throw new Error(`Character item link ${input.linkId} not found.`);
+      }
+
+      if (input.endChapterId !== undefined) {
+        this.assertChapterBelongsToProject(
+          chapterRepository,
+          input.endChapterId,
+          current.project_id
+        );
+      }
+
       const link = repository.endOwnership(input);
       logger.success(`character:item:remove link=${link.id}`);
       return link;
     } finally {
       database.close();
+    }
+  }
+
+  private assertCharacterBelongsToProject(
+    repository: CharacterRepository,
+    characterId: number,
+    projectId: number
+  ): void {
+    const character = repository.findById(characterId);
+    if (!character) {
+      throw new Error(`Character ${characterId} not found.`);
+    }
+
+    if (character.project_id !== projectId) {
+      throw new Error(
+        `Character ${characterId} does not belong to project ${projectId}.`
+      );
+    }
+  }
+
+  private assertItemBelongsToProject(
+    repository: ItemRepository,
+    itemId: number,
+    projectId: number
+  ): void {
+    const item = repository.findById(itemId);
+    if (!item) {
+      throw new Error(`Item ${itemId} not found.`);
+    }
+
+    if (item.project_id !== projectId) {
+      throw new Error(`Item ${itemId} does not belong to project ${projectId}.`);
+    }
+  }
+
+  private assertChapterBelongsToProject(
+    repository: ChapterRepository,
+    chapterId: number,
+    projectId: number
+  ): void {
+    const chapter = repository.findById(chapterId);
+    if (!chapter) {
+      throw new Error(`Chapter ${chapterId} not found.`);
+    }
+
+    if (chapter.project_id !== projectId) {
+      throw new Error(`Chapter ${chapterId} does not belong to project ${projectId}.`);
     }
   }
 }
