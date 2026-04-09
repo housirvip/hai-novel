@@ -21,9 +21,16 @@ export function buildDraftWritePrompt(input: {
       ? input.context.hook_links
           .map(
             (hook, index) =>
-              `${index + 1}. ${hook.hook_title} / ${hook.link_type}${
-                hook.planned_note ? ` / ${hook.planned_note}` : ""
-              }`
+              [
+                `${index + 1}. ${hook.hook_title}`,
+                `动作：${hook.link_type}`,
+                `类型：${hook.hook_type}`,
+                `状态：${hook.hook_status}`,
+                hook.planned_note ? `计划：${hook.planned_note}` : "",
+                hook.actual_note ? `已落地：${hook.actual_note}` : ""
+              ]
+                .filter(Boolean)
+                .join(" / ")
           )
           .join("\n")
       : "无";
@@ -34,9 +41,14 @@ export function buildDraftWritePrompt(input: {
           .slice(0, 5)
           .map(
             (link, index) =>
-              `${index + 1}. ${link.item_name} / 持有人：${link.character_name}${
-                link.note ? ` / ${link.note}` : ""
-              }`
+              [
+                `${index + 1}. ${link.item_name}`,
+                `持有人：${link.character_name}`,
+                `持有方式：${link.ownership_type}`,
+                link.note ? `说明：${link.note}` : ""
+              ]
+                .filter(Boolean)
+                .join(" / ")
           )
           .join("\n")
       : "无";
