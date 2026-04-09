@@ -4,7 +4,7 @@
 
 `某条命令执行后，到底会不会写库、会改哪些状态、会不会写正式世界状态、会不会导出文件。`
 
-它和 [command-guide.md](/Users/housirvip/codex/hai-novel/docs/command-guide.md) 的区别是：
+它和 [command-guide.md](command-guide.md) 的区别是：
 
 - `command-guide.md` 更偏“怎么用”
 - 本文更偏“执行后系统会发生什么”

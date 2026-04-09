@@ -4,7 +4,7 @@
 
 如果你想看“某条命令执行后到底会改哪些状态、写哪些表”，可以配合阅读：
 
-- [command-state-matrix.md](/Users/housirvip/codex/hai-novel/docs/command-state-matrix.md)
+- [command-state-matrix.md](command-state-matrix.md)
 
 约定：
 
