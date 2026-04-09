@@ -7,6 +7,10 @@ import {
   buildDraftFixSystemPrompt
 } from "../../ai/prompts/draft-fix-prompt.js";
 import {
+  buildDraftReviewPrompt,
+  buildDraftReviewSystemPrompt
+} from "../../ai/prompts/draft-review-prompt.js";
+import {
   buildDraftWritePrompt,
   buildDraftWriteSystemPrompt
 } from "../../ai/prompts/draft-write-prompt.js";
@@ -160,11 +164,15 @@ export class DraftService {
         projectId: draft.project_id,
         chapterId: draft.chapter_id
       });
+      const reviewEvaluation = await this.evaluateDraftReview(
+        chapterContext,
+        draft.draft_text,
+        input.notes
+      );
 
       if (input.action === "check") {
-        logger.progress("draft:review 1/2 执行规则检查");
-        const issues = this.reviewIssues(chapterContext, draft.draft_text);
-        const reviewReport = this.serializeIssues(issues);
+        logger.progress("draft:review 1/2 执行 AI 审查与规则合并");
+        const reviewReport = this.serializeIssues(reviewEvaluation.issues);
         const updatedDraft = draftRepository.updateReview(input.draftId, {
           status: "checked",
           reviewNotes: input.notes ?? null,
@@ -177,35 +185,39 @@ export class DraftService {
           projectId: draft.project_id,
           chapterId: draft.chapter_id,
           runType: "draft_review_check",
+          templateKey: reviewEvaluation.templateMetadata.key,
+          templateLabel: reviewEvaluation.templateMetadata.name,
+          templateVersion: reviewEvaluation.templateMetadata.version,
+          templateSummary: reviewEvaluation.templateMetadata.summary,
+          promptText: reviewEvaluation.prompt,
           inputContext: draft.draft_text,
           outputText: reviewReport,
-          model: "rule-reviewer-v1",
+          model: reviewEvaluation.model,
           status: "success"
         });
 
         logger.success(
-          `draft:review action=check draft=${input.draftId} issues=${issues.length}`
+          `draft:review action=check draft=${input.draftId} issues=${reviewEvaluation.issues.length}`
         );
 
         return {
           action: input.action,
           draft: updatedDraft,
-          issues,
+          issues: reviewEvaluation.issues,
           generationRunId: run.id
         };
       }
 
       if (input.action === "fix") {
-        logger.progress("draft:review 1/3 执行规则检查");
-        const issues = this.reviewIssues(chapterContext, draft.draft_text);
+        logger.progress("draft:review 1/3 执行 AI 审查与规则合并");
         const templateMetadata = getPromptTemplateMetadata("draft-fix");
         const fixedDraft = await this.generateFixedDraft(
           chapterContext,
           draft.draft_text,
-          issues,
+          reviewEvaluation.issues,
           input.notes
         );
-        const reviewReport = this.serializeIssues(issues);
+        const reviewReport = this.serializeIssues(reviewEvaluation.issues);
 
         logger.progress("draft:review 2/3 写回草稿");
         const updatedDraft = draftRepository.updateReview(input.draftId, {
@@ -247,20 +259,19 @@ export class DraftService {
         return {
           action: input.action,
           draft: updatedDraft,
-          issues,
+          issues: reviewEvaluation.issues,
           generationRunId: run.id,
           exportPath: exportResult.exportPath
         };
       }
 
-      logger.progress("draft:review 1/3 读取草稿并生成检查报告");
-      const issues = this.reviewIssues(chapterContext, draft.draft_text);
+      logger.progress("draft:review 1/3 读取草稿并执行 AI 审查");
       const approvalService = new ApprovalService(this.context, database);
 
       logger.progress("draft:review 2/3 批准草稿并同步 final");
       const approvalResult = await approvalService.approveDraft({
         draftId: input.draftId,
-        reviewIssues: issues,
+        reviewIssues: reviewEvaluation.issues,
         reviewNotes: input.notes,
         existingReviewNotes: draft.review_notes
       });
@@ -287,7 +298,7 @@ export class DraftService {
       return {
         action: input.action,
         draft: approvalResult.approvedDraft,
-        issues,
+        issues: reviewEvaluation.issues,
         generationRunId: approvalResult.generationRunId,
         exportPath: exportResult.exportPath
       };
@@ -423,6 +434,74 @@ export class DraftService {
     };
   }
 
+  private async evaluateDraftReview(
+    context: ChapterGenerationContext,
+    draftText: string,
+    notes?: string
+  ): Promise<{
+    issues: DraftReviewIssue[];
+    model: string;
+    prompt: string;
+    templateMetadata: ReturnType<typeof getPromptTemplateMetadata>;
+  }> {
+    const templateMetadata = getPromptTemplateMetadata("draft-review");
+    const ruleIssues = this.reviewIssues(context, draftText, {
+      includeFallbackIssue: false
+    }).map((issue) => ({
+      ...issue,
+      source: "rule" as const
+    }));
+    const prompt = buildDraftReviewPrompt({
+      context,
+      draftText,
+      notes,
+      ruleIssues
+    });
+
+    const settings = resolveAISettings(this.context);
+    if (settings.provider === "mock") {
+      return {
+        issues: this.finalizeReviewIssues(ruleIssues),
+        model: "rule-reviewer-v1",
+        prompt,
+        templateMetadata
+      };
+    }
+
+    try {
+      const provider = createAIProvider(this.context);
+      const result = await provider.generateText({
+        taskType: "draft_review_check",
+        systemPrompt: buildDraftReviewSystemPrompt(),
+        prompt,
+        contextText: formatChapterContextAsText(context),
+        temperature: 0.2,
+        maxOutputTokens: 1200
+      });
+
+      const aiIssues = this.parseReviewIssues(result.text).map((issue) => ({
+        ...issue,
+        source: "ai" as const
+      }));
+
+      return {
+        issues: this.finalizeReviewIssues([...ruleIssues, ...aiIssues]),
+        model: result.model,
+        prompt,
+        templateMetadata
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.info(`draft:review ai-check fallback to rules only: ${message}`);
+      return {
+        issues: this.finalizeReviewIssues(ruleIssues),
+        model: "rule-reviewer-v1",
+        prompt,
+        templateMetadata
+      };
+    }
+  }
+
   private assertDraftReviewable(
     draft: ChapterDraftRecord,
     action: ReviewDraftInput["action"]
@@ -525,7 +604,10 @@ export class DraftService {
 
   private reviewIssues(
     context: ChapterGenerationContext,
-    draftText: string
+    draftText: string,
+    options: {
+      includeFallbackIssue?: boolean;
+    } = {}
   ): DraftReviewIssue[] {
     const issues: DraftReviewIssue[] = [];
     const trimmedText = draftText.trim();
@@ -636,7 +718,7 @@ export class DraftService {
       });
     }
 
-    if (issues.length === 0) {
+    if (issues.length === 0 && options.includeFallbackIssue !== false) {
       issues.push({
         level: "warning",
         title: "未发现阻塞问题",
@@ -649,6 +731,100 @@ export class DraftService {
 
   private serializeIssues(issues: DraftReviewIssue[]): string {
     return JSON.stringify(issues, null, 2);
+  }
+
+  private parseReviewIssues(rawOutput: string): DraftReviewIssue[] {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(this.unwrapJson(rawOutput));
+    } catch {
+      throw new Error("Draft review returned invalid JSON.");
+    }
+
+    const issueCandidates = Array.isArray(parsed)
+      ? parsed
+      : parsed && typeof parsed === "object" && Array.isArray((parsed as { issues?: unknown }).issues)
+        ? (parsed as { issues: unknown[] }).issues
+        : null;
+
+    if (!issueCandidates) {
+      throw new Error("Draft review JSON must contain an issues array.");
+    }
+
+    return issueCandidates.flatMap((item) => {
+      if (!item || typeof item !== "object") {
+        return [];
+      }
+
+      const level = (item as { level?: unknown }).level;
+      const title = (item as { title?: unknown }).title;
+      const detail = (item as { detail?: unknown }).detail;
+      if (
+        (level !== "error" && level !== "warning") ||
+        typeof title !== "string" ||
+        !title.trim() ||
+        typeof detail !== "string" ||
+        !detail.trim()
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          level,
+          title: title.trim(),
+          detail: detail.trim()
+        }
+      ];
+    });
+  }
+
+  private finalizeReviewIssues(issues: DraftReviewIssue[]): DraftReviewIssue[] {
+    const deduped = new Map<string, DraftReviewIssue>();
+    for (const issue of issues) {
+      const key = `${issue.level}::${issue.title.trim()}::${issue.detail.trim()}`;
+      if (!deduped.has(key)) {
+        deduped.set(key, {
+          level: issue.level,
+          title: issue.title.trim(),
+          detail: issue.detail.trim(),
+          source: issue.source
+        });
+      }
+    }
+
+    const normalized = [...deduped.values()].sort((left, right) => {
+      if (left.level === right.level) {
+        return left.title.localeCompare(right.title, "zh-Hans-CN");
+      }
+
+      return left.level === "error" ? -1 : 1;
+    });
+
+    if (normalized.length > 0) {
+      return normalized;
+    }
+
+    return [
+      {
+        level: "warning",
+        title: "未发现阻塞问题",
+        detail: "AI 审查与规则检查都未发现明显硬伤，但仍建议人工通读确认节奏与风格。",
+        source: "ai"
+      }
+    ];
+  }
+
+  private unwrapJson(rawOutput: string): string {
+    const trimmed = rawOutput.trim();
+    if (trimmed.startsWith("```")) {
+      const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+      if (fenced) {
+        return fenced[1].trim();
+      }
+    }
+
+    return trimmed;
   }
 
   private fixDraftText(

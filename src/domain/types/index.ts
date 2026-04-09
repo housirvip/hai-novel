@@ -19,6 +19,7 @@ export type PromptTemplateKey =
   | "chapter-plan"
   | "draft-write"
   | "draft-fix"
+  | "draft-review"
   | "state-extract";
 
 /**
@@ -1249,6 +1250,8 @@ export interface DraftReviewIssue {
   title: string;
   /** 问题说明。 */
   detail: string;
+  /** 问题来源，便于后续区分规则检查与 AI 审查。 */
+  source?: "rule" | "ai";
 }
 
 /**
@@ -1647,8 +1650,20 @@ export interface ExtractedChapterStatePayload {
   chapter_summary: string;
   /** 本章发生变化的人物状态集合。 */
   characters: Array<{
-    /** 角色 ID。 */
-    character_id: number;
+    /** 角色 ID；命中既有角色时优先返回。 */
+    character_id?: number;
+    /** 新角色名称；仅在上下文中不存在该角色时使用。 */
+    name?: string;
+    /** 新角色的静态角色定位。 */
+    role?: string;
+    /** 所属势力 ID；若是新势力也可只给 faction_name。 */
+    faction_id?: number;
+    /** 所属势力名称；便于 approve 时先建势力再挂角色。 */
+    faction_name?: string;
+    /** 职业或职业路径。 */
+    profession?: string;
+    /** 简短人物档案。 */
+    profile?: string;
     /** 状态摘要。 */
     status_summary?: string;
     /** 当前地点。 */
@@ -1662,8 +1677,22 @@ export interface ExtractedChapterStatePayload {
   }>;
   /** 本章发生变化的势力状态集合。 */
   factions: Array<{
-    /** 势力 ID。 */
-    faction_id: number;
+    /** 势力 ID；命中既有势力时优先返回。 */
+    faction_id?: number;
+    /** 新势力名称；仅在上下文中不存在该势力时使用。 */
+    name?: string;
+    /** 势力类型。 */
+    type?: string;
+    /** 首领名。 */
+    leader?: string;
+    /** 势力目标。 */
+    goal?: string;
+    /** 势力立场。 */
+    stance?: string;
+    /** 势力简要摘要。 */
+    summary?: string;
+    /** 额外详情。 */
+    details?: string;
     /** 状态摘要。 */
     status_summary?: string;
     /** 权力变化。 */
@@ -1673,8 +1702,24 @@ export interface ExtractedChapterStatePayload {
   }>;
   /** 本章推进到的钩子状态集合。 */
   hooks: Array<{
-    /** 钩子 ID。 */
-    hook_id: number;
+    /** 钩子 ID；命中既有钩子时优先返回。 */
+    hook_id?: number;
+    /** 新钩子标题；仅在上下文中不存在该钩子时使用。 */
+    title?: string;
+    /** 钩子类型。 */
+    hook_type?: string;
+    /** 钩子摘要。 */
+    summary?: string;
+    /** 设钩说明。 */
+    setup_text?: string;
+    /** 回收目标说明。 */
+    payoff_text?: string;
+    /** 优先级。 */
+    priority?: number;
+    /** 计划回收章节 ID。 */
+    target_chapter_id?: number;
+    /** 本章与钩子的关系类型，例如 setup / advance / reveal / close。 */
+    link_type?: string;
     /** 推进状态。 */
     progress_status: HookProgressStatus;
     /** 推进说明。 */

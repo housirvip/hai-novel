@@ -15,7 +15,8 @@ export function buildStateExtractSystemPrompt(): string {
 
 /**
  * 构造状态提取 prompt。
- * 这里显式带上候选对象 ID，方便模型直接返回结构化主键映射结果。
+ * 这里显式带上候选对象 ID，方便模型优先复用既有对象；
+ * 若正式文稿明确引入新人物 / 新势力 / 新钩子，也允许模型返回最小建档信息。
  */
 export function buildStateExtractPrompt(input: {
   context: ChapterGenerationContext;
@@ -107,6 +108,12 @@ export function buildStateExtractPrompt(input: {
     '  "characters": [',
     "    {",
     '      "character_id": 1,',
+    '      "name": "若是新角色则填写名字，否则可省略",',
+    '      "role": "新角色可选：protagonist / antagonist / supporting / cameo 等",',
+    '      "faction_id": 1,',
+    '      "faction_name": "若角色属于新势力，可填势力名",',
+    '      "profession": "字符串或空字符串",',
+    '      "profile": "一句话角色简介或空字符串",',
     '      "status_summary": "字符串",',
     '      "location": "字符串或空字符串",',
     '      "goal": "字符串或空字符串",',
@@ -117,6 +124,13 @@ export function buildStateExtractPrompt(input: {
     '  "factions": [',
     "    {",
     '      "faction_id": 1,',
+    '      "name": "若是新势力则填写名称，否则可省略",',
+    '      "type": "字符串或空字符串",',
+    '      "leader": "字符串或空字符串",',
+    '      "goal": "字符串或空字符串",',
+    '      "stance": "字符串或空字符串",',
+    '      "summary": "一句话势力摘要或空字符串",',
+    '      "details": "补充设定或空字符串",',
     '      "status_summary": "字符串",',
     '      "power_shift": "字符串或空字符串",',
     '      "external_relation_summary": "字符串或空字符串"',
@@ -125,6 +139,14 @@ export function buildStateExtractPrompt(input: {
     '  "hooks": [',
     "    {",
     '      "hook_id": 1,',
+    '      "title": "若是新钩子则填写标题，否则可省略",',
+    '      "hook_type": "mystery / threat / promise / relationship / item / secret 等，若新钩子请尽量填写",',
+    '      "summary": "一句话钩子摘要或空字符串",',
+    '      "setup_text": "本章如何埋下或暴露该钩子，可空",',
+    '      "payoff_text": "未来回收方向，可空",',
+    '      "priority": 1,',
+    '      "target_chapter_id": 12,',
+    '      "link_type": "setup / advance / reveal / close",',
     '      "progress_status": "pending 或 started 或 advanced 或 resolved",',
     '      "progress_note": "字符串"',
     "    }",
@@ -140,11 +162,12 @@ export function buildStateExtractPrompt(input: {
     "}",
     "",
     "提取要求：",
-    "1. 只能使用候选列表中已有的 ID，不要杜撰新对象。",
-    "2. 只提取已经在正式文稿中真正落地的状态，不要把 plan 或推测当事实。",
-    "3. 若某对象没有明确变化，可以不输出它。",
-    "4. 钩子若文稿已有推进或回收迹象，progress_status 应为 started / advanced / resolved。",
-    "5. 物品只需要提取本章明确写到的关键道具，不需要穷举全部库存。",
-    "6. 必须输出合法 JSON。"
+    "1. 候选列表里已经存在的人物 / 势力 / 钩子，优先返回对应 ID，不要重复新建。",
+    "2. 若正式文稿明确出现上下文中不存在的新人物、新势力或新钩子，可以返回 name / title 等最小建档信息。",
+    "3. 只提取已经在正式文稿中真正落地的状态，不要把 plan 或推测当事实。",
+    "4. 若某对象没有明确变化，可以不输出它。",
+    "5. 钩子若文稿已有推进或回收迹象，progress_status 应为 started / advanced / resolved；link_type 要与本章动作匹配。",
+    "6. 物品只需要提取本章明确写到的关键道具，不需要穷举全部库存。",
+    "7. 必须输出合法 JSON。"
   ].join("\n");
 }

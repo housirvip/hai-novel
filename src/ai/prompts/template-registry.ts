@@ -26,6 +26,12 @@ const promptTemplateRegistry: Record<PromptTemplateKey, PromptTemplateMetadata> 
     version: "1.0.0",
     summary: "依据 review 问题清单和上下文，对章节草稿做完整修订。"
   },
+  "draft-review": {
+    key: "draft-review",
+    name: "草稿审查模板",
+    version: "1.0.0",
+    summary: "依据章节上下文和草稿正文，由 AI 输出结构化审稿问题清单。"
+  },
   "state-extract": {
     key: "state-extract",
     name: "状态提取模板",
