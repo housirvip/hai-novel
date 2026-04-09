@@ -37,15 +37,14 @@
 项目采用 `CLI -> Application Service -> Repository / AI Provider -> SQLite` 的分层结构。
 
 ```mermaid
-flowchart LR
-  CLI["CLI Commands\nsrc/cli/commands"] --> APP["Application Services\nsrc/app/services"]
-  APP --> AI["AI Providers & Prompts\nsrc/ai"]
-  APP --> REPO["Repositories\nsrc/db/repositories"]
-  REPO --> DB["SQLite\nnovel.db"]
-  APP --> FS["Markdown Exports\nexports/*.md"]
-  FS --> APP
-  APP --> RUN["generation_runs\n生成历史"]
-  APP --> SNAP["chapter_state_snapshots\n及正式状态快照"]
+flowchart TD
+  CLI["CLI"] --> APP["Application Services"]
+  APP --> REPO["Repositories"]
+  REPO --> DB["SQLite"]
+  APP --> AI["AI Providers"]
+  APP <--> FS["Markdown"]
+  APP --> RUN["generation_runs"]
+  APP --> SNAP["state_snapshots"]
 ```
 
 这套分层重点是：
@@ -203,35 +202,30 @@ flowchart LR
 ### 1. 章节创作主链路
 
 ```mermaid
-flowchart TD
-  A["chapter create"] --> B["章节状态: created"]
-  B --> C["chapter plan"]
-  C --> D["生成 chapter_plans"]
-  D --> E["导出 chapter-xxx-plan.md"]
-  E --> F["章节状态: planning"]
-  F --> G["draft write"]
-  G --> H["生成 chapter_drafts"]
-  H --> I["导出 chapter-xxx-draft.md"]
-  I --> J["章节状态: drafting"]
-  J --> K["draft review check / fix"]
-  K --> L["章节状态: reviewing"]
-  L --> M["draft review approve"]
-  M --> N["chapters.final_text + approved_draft_id"]
-  N --> O["导出 chapter-xxx-final.md"]
-  O --> P["状态抽取 + 正式快照落库"]
-  P --> Q["章节状态: done"]
+flowchart LR
+  A["建章节"] --> B["生成 plan"]
+  B --> C["生成 draft"]
+  C --> D["check / fix"]
+  D --> E["approve"]
+  E --> F["final + 正式快照"]
 ```
+
+对应状态推进：
+
+- `chapter create` 后为 `created`
+- `chapter plan` 后为 `planning`
+- `draft write` 后为 `drafting`
+- `draft review check / fix` 后为 `reviewing`
+- `draft review approve` 后为 `done`
 
 ### 2. Markdown 回写链路
 
 ```mermaid
-flowchart TD
-  A["导出 plan / draft Markdown"] --> B["作者手工修改"]
-  B --> C["plan import / draft import"]
-  C --> D["校验 frontmatter"]
-  D --> E["校验 entity_type / id / source_version"]
-  E --> F["更新 chapter_plans / chapter_drafts"]
-  F --> G["source_version +1"]
+flowchart LR
+  A["导出 Markdown"] --> B["作者修改"]
+  B --> C["import"]
+  C --> D["校验元数据"]
+  D --> E["回写正文 + 版本号"]
 ```
 
 设计原则：
@@ -244,13 +238,11 @@ flowchart TD
 ### 3. 正式状态同步链路
 
 ```mermaid
-flowchart TD
-  A["draft review approve"] --> B["读取当前 draft"]
-  B --> C["AI 提取章节正式状态"]
-  C --> D["写 chapter_state_snapshots"]
-  D --> E["拆分写入 character / faction / hook 快照"]
-  E --> F["更新 chapters.final_text"]
-  F --> G["记录 generation_runs"]
+flowchart LR
+  A["approve"] --> B["AI 提取状态"]
+  B --> C["写章节快照"]
+  C --> D["写人物/势力/钩子快照"]
+  D --> E["记录 generation_runs"]
 ```
 
 这里最重要的约束是：
@@ -260,6 +252,10 @@ flowchart TD
 - `check / fix` 不会更新世界正式状态
 - 只有 `approve` 才会更新正式状态快照
 - `state chapter-preview` 只做预览，不会落正式库
+
+更完整的模块边界与时序图见：
+
+- [./docs/architecture-state-flow.md](./docs/architecture-state-flow.md)
 
 ## 环境要求
 
