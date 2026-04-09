@@ -317,7 +317,7 @@ flowchart TD
 | `draft write` | 生成新的 `chapter_drafts(status=generated)`；`chapters.status -> drafting`；写入 `generation_runs(draft_write)`；导出 draft Markdown | 不会更新正式状态，不会写 `chapters.final_text` |
 | `draft review --action check` | `chapter_drafts.status -> checked`；更新 `review_report / review_notes`；`chapters.status -> reviewing`；写入 `generation_runs(draft_review_check)` | 不会更新 `final_text`，不会写正式状态快照 |
 | `draft review --action fix` | 当前 draft 会被修订并回写；`draft_text` 更新；`source_version +1`；`updated_from=ai_fix`；`status -> generated`；`chapters.status -> reviewing`；写入 `generation_runs(draft_review_fix)`；重新导出 draft Markdown | 不会更新正式状态，不会写 `chapters.final_text` |
-| `draft import` | 更新 `chapter_drafts.draft_text / source_version / last_imported_at / updated_from=manual_import` | 不会直接改变章节状态，不会写正式状态；已 `approved` 或 `dropped` 的草稿禁止导入 |
+| `draft import` | 更新 `chapter_drafts.draft_text / status=generated / source_version / last_imported_at / updated_from=manual_import`；清空旧 `review_notes / review_report`；章节状态会按最新草稿重新推导 | 不会写正式状态；已 `approved` 或 `dropped` 的草稿禁止导入 |
 | `chapter export --source draft` | 更新 `chapter_drafts.last_export_path / last_exported_at` | 不会改变章节状态，不会改动 draft 正文 |
 | `draft drop` | `chapter_drafts.status -> dropped`；章节状态会按剩余数据重新推导：优先 `done`，否则 `reviewing / drafting / planning / created` | 不会写正式状态快照；已 `approved` 的草稿禁止 drop |
 | `draft review --action approve` | `chapter_drafts.status -> approved`；`chapters.final_text / approved_draft_id / status=done` 更新；写入 `chapter_state_snapshots` 和人物 / 势力 / 钩子正式快照；写入 `generation_runs(state_extract / draft_review_approve)`；导出 final Markdown | 不会保留“未正式生效”的状态，approve 就是正式落库点 |

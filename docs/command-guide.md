@@ -460,6 +460,9 @@ npm run dev -- draft import --draft 1 --input exports/chapter-001-draft.md --for
 
 - 只允许导入仍处于工作流中的 draft
 - 已 `approved` 或 `dropped` 的 draft 禁止导入
+- 导入后该 draft 会重置为 `generated`
+- 旧的 `review_report / review_notes` 会被清空，需要重新执行 `check / fix / approve`
+- 章节状态会按最新草稿重新推导，通常会回到 `drafting`
 
 ### 导出章节内容
 

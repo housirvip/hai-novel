@@ -221,9 +221,12 @@ export class ChapterDraftRepository {
       .prepare<[string, number], Database.RunResult>(
         `UPDATE chapter_drafts
          SET draft_text = ?,
+             status = 'generated',
              source_version = source_version + 1,
              last_imported_at = CURRENT_TIMESTAMP,
              updated_from = 'manual_import',
+             review_notes = NULL,
+             review_report = NULL,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`
       )

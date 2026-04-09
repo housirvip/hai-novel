@@ -368,6 +368,10 @@ export class DraftService {
         force: input.force
       });
 
+      // 手工回写后的正文已经变成一个待重新确认的新版本，
+      // 因此要按“最新草稿”重新推导章节状态，避免继续沿用旧 review 结果。
+      this.refreshChapterStatusAfterDraftMutation(database, draft.chapter_id);
+
       logger.success(
         `draft:import draft=${input.draftId} file=${relativeToAppRoot(
           this.context.appRoot,

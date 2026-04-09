@@ -460,6 +460,11 @@ test("plan 和 draft 导出的 Markdown 支持手工修改后回写", async () =
     projectId: project.id,
     chapterId: chapter.id
   });
+  await draftService.reviewDraft({
+    draftId: draftWriteResult.draft.id,
+    action: "check",
+    notes: "先做一次检查，再手工修订"
+  });
 
   const exportedDraftMarkdown = readFileSync(draftWriteResult.exportPath, "utf8");
   assert.match(exportedDraftMarkdown, /^---\nentity_type: chapter_draft/m);
@@ -475,9 +480,13 @@ test("plan 和 draft 导出的 Markdown 支持手工修改后回写", async () =
     draftId: draftWriteResult.draft.id,
     inputPath: draftWriteResult.exportPath
   });
+  assert.equal(importedDraft.draft.status, "generated");
   assert.equal(importedDraft.draft.source_version, 2);
   assert.equal(importedDraft.draft.updated_from, "manual_import");
+  assert.equal(importedDraft.draft.review_notes, null);
+  assert.equal(importedDraft.draft.review_report, null);
   assert.match(importedDraft.draft.draft_text, /作者手工修订后的草稿正文/);
+  assert.equal(chapterService.showChapter(chapter.id).chapter.status, "drafting");
 
   const approveResult = await draftService.reviewDraft({
     draftId: draftWriteResult.draft.id,
