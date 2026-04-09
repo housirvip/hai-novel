@@ -212,6 +212,55 @@ test("dropped draft 不会再被默认导出或状态预览选中", async () => 
   }
 });
 
+test("drop 最后一份可用 draft 后，章节状态会回退到 planning", async () => {
+  const workspace = createWorkspace("hai-novel-drop-status-");
+  const context = await initWorkspace(workspace);
+
+  const { ProjectService } = await importDist("app/services/project-service.js");
+  const { ChapterService } = await importDist("app/services/chapter-service.js");
+  const { DraftService } = await importDist("app/services/draft-service.js");
+
+  const projectService = new ProjectService(context);
+  const chapterService = new ChapterService(context);
+  const draftService = new DraftService(context);
+
+  const project = projectService.createProject({
+    name: "drop 状态回退测试",
+    genre: "仙侠"
+  });
+  const chapter = chapterService.createChapter({
+    projectId: project.id,
+    title: "第001章 雨夜入宗",
+    summary: "主角带着异物进入宗门"
+  });
+
+  await chapterService.generatePlan({
+    projectId: project.id,
+    chapterId: chapter.id,
+    intent: "突出压迫感"
+  });
+
+  const draftResult = await draftService.writeDraft({
+    projectId: project.id,
+    chapterId: chapter.id
+  });
+  assert.equal(chapterService.showChapter(chapter.id).chapter.status, "drafting");
+
+  draftService.dropDraft(draftResult.draft.id);
+
+  const chapterAfterDrop = chapterService.showChapter(chapter.id);
+  assert.equal(chapterAfterDrop.chapter.status, "planning");
+
+  await assert.rejects(
+    () =>
+      chapterService.exportChapter({
+        chapterId: chapter.id,
+        source: "draft"
+      }),
+    /No draft found/
+  );
+});
+
 test("DraftService review 会检查主角、势力、钩子和摘要是否真正落地", async () => {
   const workspace = createWorkspace("hai-novel-review-semantic-");
   const context = await initWorkspace(workspace);
@@ -438,6 +487,72 @@ test("plan 和 draft 导出的 Markdown 支持手工修改后回写", async () =
 
   const chapterDetail = chapterService.showChapter(chapter.id);
   assert.match(chapterDetail.chapter.final_text ?? "", /作者手工修订后的草稿正文/);
+});
+
+test("approved draft 会被冻结，不能再 review、drop 或 import", async () => {
+  const workspace = createWorkspace("hai-novel-approved-freeze-");
+  const context = await initWorkspace(workspace);
+
+  const { ProjectService } = await importDist("app/services/project-service.js");
+  const { ChapterService } = await importDist("app/services/chapter-service.js");
+  const { DraftService } = await importDist("app/services/draft-service.js");
+
+  const projectService = new ProjectService(context);
+  const chapterService = new ChapterService(context);
+  const draftService = new DraftService(context);
+
+  const project = projectService.createProject({
+    name: "approved 冻结测试",
+    genre: "仙侠"
+  });
+  const chapter = chapterService.createChapter({
+    projectId: project.id,
+    title: "第001章 雨夜入宗",
+    summary: "主角带着异物进入宗门"
+  });
+
+  await chapterService.generatePlan({
+    projectId: project.id,
+    chapterId: chapter.id,
+    intent: "突出压迫感"
+  });
+
+  const draftResult = await draftService.writeDraft({
+    projectId: project.id,
+    chapterId: chapter.id
+  });
+
+  await draftService.reviewDraft({
+    draftId: draftResult.draft.id,
+    action: "approve"
+  });
+
+  await assert.rejects(
+    () =>
+      draftService.reviewDraft({
+        draftId: draftResult.draft.id,
+        action: "fix"
+      }),
+    /already approved and frozen/i
+  );
+
+  assert.throws(
+    () => draftService.dropDraft(draftResult.draft.id),
+    /already approved and cannot be dropped/i
+  );
+
+  await assert.rejects(
+    () =>
+      draftService.importDraft({
+        draftId: draftResult.draft.id,
+        inputPath: draftResult.exportPath
+      }),
+    /approved and frozen/i
+  );
+
+  const chapterAfterRejectedOps = chapterService.showChapter(chapter.id);
+  assert.equal(chapterAfterRejectedOps.chapter.status, "done");
+  assert.equal(chapterAfterRejectedOps.chapter.approved_draft_id, draftResult.draft.id);
 });
 
 test("draft approve 后会写入章节、人物、势力和钩子状态快照", async () => {

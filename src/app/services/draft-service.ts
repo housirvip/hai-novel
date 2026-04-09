@@ -18,6 +18,7 @@ import { ChapterPlanRepository } from "../../db/repositories/chapter-plan-reposi
 import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
 import { GenerationRunRepository } from "../../db/repositories/generation-run-repository.js";
 import type {
+  ChapterDraftRecord,
   ChapterGenerationContext,
   DraftImportResult,
   DraftReviewIssue,
@@ -149,6 +150,10 @@ export class DraftService {
       if (!chapter) {
         throw new Error(`Chapter ${draft.chapter_id} not found for draft ${input.draftId}.`);
       }
+
+      // 已转正或已丢弃的草稿不再允许继续进入 review 流程，
+      // 否则会把 draft、final 和正式状态快照改成彼此不一致的状态。
+      this.assertDraftReviewable(draft, input.action);
 
       const chapterContext = contextBuilder.build({
         projectId: draft.project_id,
@@ -296,9 +301,18 @@ export class DraftService {
     const database = createDatabase(this.context.dbPath);
     try {
       const draftRepository = new ChapterDraftRepository(database);
+      const draft = draftRepository.findById(draftId);
+      if (!draft) {
+        throw new Error(`Draft ${draftId} not found.`);
+      }
+
+      // 已批准的草稿已经成为正式文稿来源，不能再被 drop。
+      this.assertDraftMutableForDrop(draft);
+
       draftRepository.updateReview(draftId, {
         status: "dropped"
       });
+      this.refreshChapterStatusAfterDraftMutation(database, draft.chapter_id);
       logger.success(`draft:drop draft=${draftId}`);
     } finally {
       database.close();
@@ -341,6 +355,10 @@ export class DraftService {
           `Draft import chapter mismatch: draft=${draft.chapter_id}, file=${chapterId}.`
         );
       }
+
+      // 回写只允许针对仍处于工作流中的草稿，
+      // 已转正或已丢弃的稿件视为冻结状态，避免改动后不触发正式状态同步。
+      this.assertDraftImportable(draft);
 
       const updatedDraft = draftRepository.updateImportedContent({
         draftId: input.draftId,
@@ -398,6 +416,90 @@ export class DraftService {
       model: result.model,
       prompt
     };
+  }
+
+  private assertDraftReviewable(
+    draft: ChapterDraftRecord,
+    action: ReviewDraftInput["action"]
+  ): void {
+    if (draft.status === "dropped") {
+      throw new Error(`Draft ${draft.id} was dropped and cannot be reviewed.`);
+    }
+
+    if (draft.status === "approved") {
+      throw new Error(
+        `Draft ${draft.id} is already approved and frozen. Create a new draft before running \`${action}\`.`
+      );
+    }
+  }
+
+  private assertDraftImportable(draft: ChapterDraftRecord): void {
+    if (draft.status === "dropped") {
+      throw new Error(`Draft ${draft.id} was dropped and cannot be imported.`);
+    }
+
+    if (draft.status === "approved") {
+      throw new Error(
+        `Draft ${draft.id} is already approved and frozen. Import is disabled for approved drafts.`
+      );
+    }
+  }
+
+  private assertDraftMutableForDrop(draft: ChapterDraftRecord): void {
+    if (draft.status === "approved") {
+      throw new Error(
+        `Draft ${draft.id} is already approved and cannot be dropped because it is the final source draft.`
+      );
+    }
+  }
+
+  private refreshChapterStatusAfterDraftMutation(
+    database: ReturnType<typeof createDatabase>,
+    chapterId: number
+  ): void {
+    const chapterRepository = new ChapterRepository(database);
+    const draftRepository = new ChapterDraftRepository(database);
+    const planRepository = new ChapterPlanRepository(database);
+
+    const chapter = chapterRepository.findById(chapterId);
+    if (!chapter) {
+      throw new Error(`Chapter ${chapterId} not found.`);
+    }
+
+    if (chapter.approved_draft_id !== null || chapter.final_text) {
+      chapterRepository.updateStatus(chapterId, "done");
+      return;
+    }
+
+    const latestDraft = draftRepository.findLatestByChapterId(chapterId);
+    if (latestDraft) {
+      chapterRepository.updateStatus(chapterId, this.resolveChapterStatusFromLatestDraft(latestDraft));
+      return;
+    }
+
+    const activePlan = planRepository.findActiveByChapterId(chapterId);
+    chapterRepository.updateStatus(chapterId, activePlan ? "planning" : "created");
+  }
+
+  private resolveChapterStatusFromLatestDraft(draft: ChapterDraftRecord): string {
+    if (draft.status === "approved") {
+      return "done";
+    }
+
+    if (draft.status === "checked") {
+      return "reviewing";
+    }
+
+    if (draft.status === "generated") {
+      // 修稿后草稿状态会回到 generated，但它依然属于 review 链路中的“修后待看”阶段。
+      if (draft.updated_from === "ai_fix" || draft.review_report) {
+        return "reviewing";
+      }
+
+      return "drafting";
+    }
+
+    return "drafting";
   }
 
   private reviewIssues(

@@ -304,6 +304,36 @@ flowchart TD
 - 后续需要补同步时，可以按章节重建，而不是直接覆盖全局现状
 - 便于做“截至第 N 章”的项目状态查看
 
+## 命令与状态变化对照
+
+下面这张表用于说明“执行某个命令后，数据库里哪些状态会变化，哪些不会变化”。
+
+| 命令 | 会变化的状态 / 字段 | 不会变化的内容 |
+| --- | --- | --- |
+| `chapter create` | `chapters.status -> created` | 不会生成 plan、draft、final，也不会写正式状态 |
+| `chapter plan` | 生成新的 `chapter_plans(active)`；旧 active plan 归档为 `archived`；`chapters.status -> planning`；写入 `generation_runs(chapter_plan)`；导出 plan Markdown | 不会更新人物、势力、钩子、物品等正式状态 |
+| `plan import` | 更新 `chapter_plans.plan_text / author_intent / source_version / last_imported_at / updated_from=manual_import` | 不会改变章节状态，不会写正式状态 |
+| `chapter export --source plan` | 更新 `chapter_plans.last_export_path / last_exported_at` | 不会改变章节状态，不会改动 plan 正文 |
+| `draft write` | 生成新的 `chapter_drafts(status=generated)`；`chapters.status -> drafting`；写入 `generation_runs(draft_write)`；导出 draft Markdown | 不会更新正式状态，不会写 `chapters.final_text` |
+| `draft review --action check` | `chapter_drafts.status -> checked`；更新 `review_report / review_notes`；`chapters.status -> reviewing`；写入 `generation_runs(draft_review_check)` | 不会更新 `final_text`，不会写正式状态快照 |
+| `draft review --action fix` | 当前 draft 会被修订并回写；`draft_text` 更新；`source_version +1`；`updated_from=ai_fix`；`status -> generated`；`chapters.status -> reviewing`；写入 `generation_runs(draft_review_fix)`；重新导出 draft Markdown | 不会更新正式状态，不会写 `chapters.final_text` |
+| `draft import` | 更新 `chapter_drafts.draft_text / source_version / last_imported_at / updated_from=manual_import` | 不会直接改变章节状态，不会写正式状态；已 `approved` 或 `dropped` 的草稿禁止导入 |
+| `chapter export --source draft` | 更新 `chapter_drafts.last_export_path / last_exported_at` | 不会改变章节状态，不会改动 draft 正文 |
+| `draft drop` | `chapter_drafts.status -> dropped`；章节状态会按剩余数据重新推导：优先 `done`，否则 `reviewing / drafting / planning / created` | 不会写正式状态快照；已 `approved` 的草稿禁止 drop |
+| `draft review --action approve` | `chapter_drafts.status -> approved`；`chapters.final_text / approved_draft_id / status=done` 更新；写入 `chapter_state_snapshots` 和人物 / 势力 / 钩子正式快照；写入 `generation_runs(state_extract / draft_review_approve)`；导出 final Markdown | 不会保留“未正式生效”的状态，approve 就是正式落库点 |
+| `chapter export --source final` | 导出 final Markdown | 不会改变章节状态，也不会重建正式状态 |
+| `state chapter-preview` | 无数据库状态变化，只返回“如果现在抽取状态会得到什么”的预览结果 | 不会写快照，不会改章节状态 |
+| `state approve-sync` | 删除并重建当前章节已有的正式状态快照 | 不会改变 `chapters.status`，不会改 draft 状态 |
+| `hook bind` | 新增 `hook_chapter_links`；根据 `link_type` 可能自动更新 `story_hooks.status / start_chapter_id / end_chapter_id` | 不会改变章节创作状态 |
+| `hook update` | 更新 `story_hooks.status / start_chapter_id / target_chapter_id / end_chapter_id` | 不会改变章节创作状态 |
+
+补充约束：
+
+- `approved` draft 现在是冻结状态，不能再执行 `review / import / drop`
+- `dropped` draft 不再参与默认 `chapter export --source draft` 和 `state chapter-preview`
+- `plan / draft / check / fix` 都只影响创作中间态，不会更新正式世界状态
+- 只有 `approve` 才会把正文、正式状态快照和生成历史一起推进到“正式生效”
+
 ## 模块协作关系
 
 如果把一次完整创作看成协作链路，大致是：
