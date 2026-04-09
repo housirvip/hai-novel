@@ -21,6 +21,7 @@
 - [CLI 命令使用指南](./docs/command-guide.md)
 - [命令状态矩阵](./docs/command-state-matrix.md)
 - [模块责任与状态时序图](./docs/architecture-state-flow.md)
+- [环境变量配置说明](./docs/env-config.md)
 
 ## 系统目标
 
@@ -538,6 +539,7 @@ docs/
   architecture-state-flow.md
   command-guide.md
   command-state-matrix.md
+  env-config.md
   v1-plan.md
   v1-task-list.md
   v2-plan.md
