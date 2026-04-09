@@ -114,4 +114,56 @@ export class CharacterFactionRelationRepository {
     );
     return statement.get(id);
   }
+
+  update(input: {
+    relationId: number;
+    relationType?: string;
+    title?: string;
+    stance?: string;
+    summary?: string;
+    details?: string;
+    isPrimary?: boolean;
+    status?: string;
+  }): CharacterFactionRelationRecord {
+    const current = this.findById(input.relationId);
+    if (!current) {
+      throw new Error(`Character-faction relation ${input.relationId} not found.`);
+    }
+
+    this.database
+      .prepare<
+        [string, string | null, string | null, string | null, string | null, number, string, number],
+        Database.RunResult
+      >(
+        `UPDATE character_faction_relations
+         SET relation_type = ?,
+             title = ?,
+             stance = ?,
+             summary = ?,
+             details = ?,
+             is_primary = ?,
+             status = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      )
+      .run(
+        input.relationType ?? current.relation_type,
+        input.title ?? current.title,
+        input.stance ?? current.stance,
+        input.summary ?? current.summary,
+        input.details ?? current.details,
+        input.isPrimary !== undefined ? (input.isPrimary ? 1 : 0) : current.is_primary,
+        input.status ?? current.status,
+        input.relationId
+      );
+
+    const updated = this.findById(input.relationId);
+    if (!updated) {
+      throw new Error(
+        `Failed to reload character-faction relation ${input.relationId} after update.`
+      );
+    }
+
+    return updated;
+  }
 }

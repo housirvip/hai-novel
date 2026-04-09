@@ -97,4 +97,51 @@ export class CharacterRelationRepository {
     );
     return statement.get(id);
   }
+
+  update(input: {
+    relationId: number;
+    relationType?: string;
+    summary?: string;
+    details?: string;
+    intensity?: number;
+    visibility?: string;
+    status?: string;
+  }): CharacterRelationRecord {
+    const current = this.findById(input.relationId);
+    if (!current) {
+      throw new Error(`Character relation ${input.relationId} not found.`);
+    }
+
+    this.database
+      .prepare<
+        [string, string | null, string | null, number | null, string | null, string, number],
+        Database.RunResult
+      >(
+        `UPDATE character_relations
+         SET relation_type = ?,
+             summary = ?,
+             details = ?,
+             intensity = ?,
+             visibility = ?,
+             status = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      )
+      .run(
+        input.relationType ?? current.relation_type,
+        input.summary ?? current.summary,
+        input.details ?? current.details,
+        input.intensity ?? current.intensity,
+        input.visibility ?? current.visibility,
+        input.status ?? current.status,
+        input.relationId
+      );
+
+    const updated = this.findById(input.relationId);
+    if (!updated) {
+      throw new Error(`Failed to reload character relation ${input.relationId} after update.`);
+    }
+
+    return updated;
+  }
 }

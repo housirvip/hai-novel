@@ -65,6 +65,26 @@ export function buildStateExtractPrompt(input: {
   }
   const hookLines = hookMap.size > 0 ? Array.from(hookMap.values()).join("\n") : "HOOK|none";
 
+  const characterRelationLines =
+    input.context.character_relations.length > 0
+      ? input.context.character_relations
+          .map(
+            (relation) =>
+              `CHAR_REL|id=${relation.id}|from_id=${relation.character_id}|from_name=${relation.character_name}|to_id=${relation.related_character_id}|to_name=${relation.related_character_name}|type=${relation.relation_type}|summary=${relation.summary ?? ""}`
+          )
+          .join("\n")
+      : "CHAR_REL|none";
+
+  const characterFactionRelationLines =
+    input.context.character_faction_relations.length > 0
+      ? input.context.character_faction_relations
+          .map(
+            (relation) =>
+              `CHAR_FACTION_REL|id=${relation.id}|character_id=${relation.character_id}|character_name=${relation.character_name}|faction_id=${relation.faction_id}|faction_name=${relation.faction_name}|type=${relation.relation_type}|summary=${relation.summary ?? ""}`
+          )
+          .join("\n")
+      : "CHAR_FACTION_REL|none";
+
   const itemLines =
     input.context.active_character_items.length > 0
       ? input.context.active_character_items
@@ -95,6 +115,12 @@ export function buildStateExtractPrompt(input: {
     "",
     "候选钩子：",
     hookLines,
+    "",
+    "已有人物关系：",
+    characterRelationLines,
+    "",
+    "已有人物-势力关系：",
+    characterFactionRelationLines,
     "",
     "候选物品：",
     itemLines,
@@ -151,6 +177,33 @@ export function buildStateExtractPrompt(input: {
     '      "progress_note": "字符串"',
     "    }",
     "  ],",
+    '  "character_relations": [',
+    "    {",
+    '      "character_id": 1,',
+    '      "character_name": "若是新角色可填名字，否则可省略",',
+    '      "related_character_id": 2,',
+    '      "related_character_name": "若是新角色可填名字，否则可省略",',
+    '      "relation_type": "enemy / mentor / ally / family 等",',
+    '      "summary": "字符串或空字符串",',
+    '      "details": "字符串或空字符串",',
+    '      "intensity": 70,',
+    '      "visibility": "public / private / secret 或空字符串"',
+    "    }",
+    "  ],",
+    '  "character_faction_relations": [',
+    "    {",
+    '      "character_id": 1,',
+    '      "character_name": "若是新角色可填名字，否则可省略",',
+    '      "faction_id": 1,',
+    '      "faction_name": "若是新势力可填名称，否则可省略",',
+    '      "relation_type": "member / leader / undercover / observer 等",',
+    '      "title": "字符串或空字符串",',
+    '      "stance": "字符串或空字符串",',
+    '      "summary": "字符串或空字符串",',
+    '      "details": "字符串或空字符串",',
+    '      "is_primary": true',
+    "    }",
+    "  ],",
     '  "items": [',
     "    {",
     '      "item_id": 1,',
@@ -167,7 +220,9 @@ export function buildStateExtractPrompt(input: {
     "3. 只提取已经在正式文稿中真正落地的状态，不要把 plan 或推测当事实。",
     "4. 若某对象没有明确变化，可以不输出它。",
     "5. 钩子若文稿已有推进或回收迹象，progress_status 应为 started / advanced / resolved；link_type 要与本章动作匹配。",
-    "6. 物品只需要提取本章明确写到的关键道具，不需要穷举全部库存。",
-    "7. 必须输出合法 JSON。"
+    "6. 若本章明确改变了人物之间的关系，或确认了人物与势力的归属/立场变化，请写入对应 relations 数组。",
+    "7. 关系若能命中已有对象，优先返回 ID；若关系一端是新角色或新势力，可配合名称返回。",
+    "8. 物品只需要提取本章明确写到的关键道具，不需要穷举全部库存。",
+    "9. 必须输出合法 JSON。"
   ].join("\n");
 }

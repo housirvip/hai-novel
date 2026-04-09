@@ -2,6 +2,8 @@ import type Database from "better-sqlite3";
 import { ChapterRepository } from "../../db/repositories/chapter-repository.js";
 import { ChapterStateSnapshotRepository } from "../../db/repositories/chapter-state-snapshot-repository.js";
 import { CharacterRepository } from "../../db/repositories/character-repository.js";
+import { CharacterFactionRelationRepository } from "../../db/repositories/character-faction-relation-repository.js";
+import { CharacterRelationRepository } from "../../db/repositories/character-relation-repository.js";
 import { CharacterStateSnapshotRepository } from "../../db/repositories/character-state-snapshot-repository.js";
 import { FactionRepository } from "../../db/repositories/faction-repository.js";
 import { FactionStateSnapshotRepository } from "../../db/repositories/faction-state-snapshot-repository.js";
@@ -32,6 +34,8 @@ export class StateUpdateService {
     characterSnapshotCount: number;
     factionSnapshotCount: number;
     hookSnapshotCount: number;
+    characterRelationCount: number;
+    characterFactionRelationCount: number;
     itemStateCount: number;
   } {
     const normalizedPayload = this.materializePayload(input);
@@ -103,6 +107,8 @@ export class StateUpdateService {
       characterSnapshotCount: normalizedPayload.characters.filter((item) => item.character_id).length,
       factionSnapshotCount: normalizedPayload.factions.filter((item) => item.faction_id).length,
       hookSnapshotCount: normalizedPayload.hooks.filter((item) => item.hook_id).length,
+      characterRelationCount: normalizedPayload.character_relations.length,
+      characterFactionRelationCount: normalizedPayload.character_faction_relations.length,
       itemStateCount: normalizedPayload.items.length
     };
   }
@@ -115,6 +121,8 @@ export class StateUpdateService {
     const chapterRepository = new ChapterRepository(this.database);
     const factionRepository = new FactionRepository(this.database);
     const characterRepository = new CharacterRepository(this.database);
+    const characterRelationRepository = new CharacterRelationRepository(this.database);
+    const characterFactionRelationRepository = new CharacterFactionRelationRepository(this.database);
     const storyHookRepository = new StoryHookRepository(this.database);
     const hookChapterLinkRepository = new HookChapterLinkRepository(this.database);
 
@@ -313,11 +321,172 @@ export class StateUpdateService {
       });
     }
 
+    const existingCharacterRelations = characterRelationRepository.findAllByProjectId(input.projectId);
+    const characterRelationKeyToId = new Map(
+      existingCharacterRelations.map((relation) => [
+        this.buildCharacterRelationKey(
+          relation.character_id,
+          relation.related_character_id,
+          relation.relation_type
+        ),
+        relation.id
+      ])
+    );
+    const resolvedCharacterRelations: ExtractedChapterStatePayload["character_relations"] = [];
+    const seenCharacterRelationKeys = new Set<string>();
+    for (const relation of input.payload.character_relations) {
+      const characterId =
+        relation.character_id ??
+        (relation.character_name
+          ? characterIdByName.get(this.normalizeName(relation.character_name))
+          : undefined);
+      const relatedCharacterId =
+        relation.related_character_id ??
+        (relation.related_character_name
+          ? characterIdByName.get(this.normalizeName(relation.related_character_name))
+          : undefined);
+
+      if (
+        !characterId ||
+        !relatedCharacterId ||
+        characterId === relatedCharacterId ||
+        !relation.relation_type.trim()
+      ) {
+        continue;
+      }
+
+      const relationType = relation.relation_type.trim();
+      const relationKey = this.buildCharacterRelationKey(
+        characterId,
+        relatedCharacterId,
+        relationType
+      );
+      if (seenCharacterRelationKeys.has(relationKey)) {
+        continue;
+      }
+      seenCharacterRelationKeys.add(relationKey);
+
+      const existingRelationId = characterRelationKeyToId.get(relationKey);
+      if (existingRelationId !== undefined) {
+        characterRelationRepository.update({
+          relationId: existingRelationId,
+          relationType,
+          summary: this.normalizeOptionalText(relation.summary),
+          details: this.normalizeOptionalText(relation.details),
+          intensity: relation.intensity,
+          visibility: this.normalizeOptionalText(relation.visibility),
+          status: "active"
+        });
+      } else {
+        const created = characterRelationRepository.create({
+          projectId: input.projectId,
+          characterId,
+          relatedCharacterId,
+          relationType,
+          summary: this.normalizeOptionalText(relation.summary),
+          details: this.normalizeOptionalText(relation.details),
+          intensity: relation.intensity,
+          visibility: this.normalizeOptionalText(relation.visibility)
+        });
+        characterRelationKeyToId.set(relationKey, created.id);
+      }
+
+      resolvedCharacterRelations.push({
+        ...relation,
+        character_id: characterId,
+        related_character_id: relatedCharacterId,
+        character_name: undefined,
+        related_character_name: undefined,
+        relation_type: relationType
+      });
+    }
+
+    const existingCharacterFactionRelations = characterFactionRelationRepository.findAllByProjectId(
+      input.projectId
+    );
+    const characterFactionRelationKeyToId = new Map(
+      existingCharacterFactionRelations.map((relation) => [
+        this.buildCharacterFactionRelationKey(
+          relation.character_id,
+          relation.faction_id,
+          relation.relation_type
+        ),
+        relation.id
+      ])
+    );
+    const resolvedCharacterFactionRelations: ExtractedChapterStatePayload["character_faction_relations"] = [];
+    const seenCharacterFactionRelationKeys = new Set<string>();
+    for (const relation of input.payload.character_faction_relations) {
+      const characterId =
+        relation.character_id ??
+        (relation.character_name
+          ? characterIdByName.get(this.normalizeName(relation.character_name))
+          : undefined);
+      const factionId =
+        relation.faction_id ??
+        (relation.faction_name
+          ? factionIdByName.get(this.normalizeName(relation.faction_name))
+          : undefined);
+
+      if (!characterId || !factionId || !relation.relation_type.trim()) {
+        continue;
+      }
+
+      const relationType = relation.relation_type.trim();
+      const relationKey = this.buildCharacterFactionRelationKey(
+        characterId,
+        factionId,
+        relationType
+      );
+      if (seenCharacterFactionRelationKeys.has(relationKey)) {
+        continue;
+      }
+      seenCharacterFactionRelationKeys.add(relationKey);
+
+      const existingRelationId = characterFactionRelationKeyToId.get(relationKey);
+      if (existingRelationId !== undefined) {
+        characterFactionRelationRepository.update({
+          relationId: existingRelationId,
+          relationType,
+          title: this.normalizeOptionalText(relation.title),
+          stance: this.normalizeOptionalText(relation.stance),
+          summary: this.normalizeOptionalText(relation.summary),
+          details: this.normalizeOptionalText(relation.details),
+          isPrimary: relation.is_primary,
+          status: "active"
+        });
+      } else {
+        const created = characterFactionRelationRepository.create({
+          projectId: input.projectId,
+          characterId,
+          factionId,
+          relationType,
+          title: this.normalizeOptionalText(relation.title),
+          stance: this.normalizeOptionalText(relation.stance),
+          summary: this.normalizeOptionalText(relation.summary),
+          details: this.normalizeOptionalText(relation.details),
+          isPrimary: relation.is_primary
+        });
+        characterFactionRelationKeyToId.set(relationKey, created.id);
+      }
+
+      resolvedCharacterFactionRelations.push({
+        ...relation,
+        character_id: characterId,
+        faction_id: factionId,
+        character_name: undefined,
+        faction_name: undefined,
+        relation_type: relationType
+      });
+    }
+
     return {
       chapter_summary: input.payload.chapter_summary,
       characters: resolvedCharacters,
       factions: resolvedFactions,
       hooks: resolvedHooks,
+      character_relations: resolvedCharacterRelations,
+      character_faction_relations: resolvedCharacterFactionRelations,
       items: input.payload.items
     };
   }
@@ -389,5 +558,21 @@ export class StateUpdateService {
 
   private normalizeName(value: string): string {
     return value.trim().toLocaleLowerCase("zh-Hans-CN");
+  }
+
+  private buildCharacterRelationKey(
+    characterId: number,
+    relatedCharacterId: number,
+    relationType: string
+  ): string {
+    return `${characterId}:${relatedCharacterId}:${relationType.trim().toLocaleLowerCase("zh-Hans-CN")}`;
+  }
+
+  private buildCharacterFactionRelationKey(
+    characterId: number,
+    factionId: number,
+    relationType: string
+  ): string {
+    return `${characterId}:${factionId}:${relationType.trim().toLocaleLowerCase("zh-Hans-CN")}`;
   }
 }

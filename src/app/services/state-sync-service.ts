@@ -48,6 +48,8 @@ export class StateSyncService {
     characterSnapshotCount: number;
     factionSnapshotCount: number;
     hookSnapshotCount: number;
+    characterRelationCount: number;
+    characterFactionRelationCount: number;
     itemStateCount: number;
   } {
     const updateService = new StateUpdateService(this.database);

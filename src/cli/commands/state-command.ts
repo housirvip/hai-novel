@@ -163,6 +163,8 @@ Examples:
           character_snapshot_count: result.characterSnapshotCount,
           faction_snapshot_count: result.factionSnapshotCount,
           hook_snapshot_count: result.hookSnapshotCount,
+          character_relation_count: result.characterRelationCount,
+          character_faction_relation_count: result.characterFactionRelationCount,
           item_state_count: result.itemStateCount
         }
       ]);

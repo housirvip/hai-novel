@@ -90,6 +90,8 @@ export class ApprovalService {
           `state_sync: characters=${stateSyncResult.characterSnapshotCount}`,
           `state_sync: factions=${stateSyncResult.factionSnapshotCount}`,
           `state_sync: hooks=${stateSyncResult.hookSnapshotCount}`,
+          `state_sync: character_relations=${stateSyncResult.characterRelationCount}`,
+          `state_sync: character_faction_relations=${stateSyncResult.characterFactionRelationCount}`,
           `state_sync: items=${stateSyncResult.itemStateCount}`,
           `state_extract_run: ${stateExtractRun.id}`
         ].join("\n"),

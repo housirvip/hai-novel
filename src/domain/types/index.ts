@@ -1725,6 +1725,50 @@ export interface ExtractedChapterStatePayload {
     /** 推进说明。 */
     progress_note?: string;
   }>;
+  /** 本章明确建立、变化或确认的人物关系。 */
+  character_relations: Array<{
+    /** 关系发起侧角色 ID；命中既有角色时优先返回。 */
+    character_id?: number;
+    /** 关系发起侧角色名；若是新角色可用于自动建档。 */
+    character_name?: string;
+    /** 关系指向侧角色 ID；命中既有角色时优先返回。 */
+    related_character_id?: number;
+    /** 关系指向侧角色名；若是新角色可用于自动建档。 */
+    related_character_name?: string;
+    /** 关系类型，例如 enemy / mentor / ally / family。 */
+    relation_type: string;
+    /** 关系摘要。 */
+    summary?: string;
+    /** 关系详情。 */
+    details?: string;
+    /** 关系强度。 */
+    intensity?: number;
+    /** 关系可见性。 */
+    visibility?: string;
+  }>;
+  /** 本章明确建立、变化或确认的人物-势力关系。 */
+  character_faction_relations: Array<{
+    /** 角色 ID；命中既有角色时优先返回。 */
+    character_id?: number;
+    /** 角色名；若是新角色可用于自动建档。 */
+    character_name?: string;
+    /** 势力 ID；命中既有势力时优先返回。 */
+    faction_id?: number;
+    /** 势力名；若是新势力可用于自动建档。 */
+    faction_name?: string;
+    /** 关系类型，例如 member / leader / undercover。 */
+    relation_type: string;
+    /** 势力内头衔。 */
+    title?: string;
+    /** 角色对该势力的立场。 */
+    stance?: string;
+    /** 关系摘要。 */
+    summary?: string;
+    /** 关系详情。 */
+    details?: string;
+    /** 是否主归属。 */
+    is_primary?: boolean;
+  }>;
   /** 本章提取到的关键物品状态集合。 */
   items: Array<{
     /** 物品 ID。 */
@@ -1794,6 +1838,10 @@ export interface ApproveSyncChapterResult {
   factionSnapshotCount: number;
   /** 本次重建后的钩子状态数量。 */
   hookSnapshotCount: number;
+  /** 本次补齐或更新的人物关系数量。 */
+  characterRelationCount: number;
+  /** 本次补齐或更新的人物-势力关系数量。 */
+  characterFactionRelationCount: number;
   /** 本次提取到的物品状态数量。 */
   itemStateCount: number;
 }

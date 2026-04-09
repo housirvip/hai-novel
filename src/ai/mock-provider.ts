@@ -120,6 +120,8 @@ export class MockProvider implements AIProvider {
         characters,
         factions,
         hooks,
+        character_relations: [],
+        character_faction_relations: [],
         items
       },
       null,

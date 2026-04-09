@@ -81,7 +81,7 @@ export class StateService {
       });
 
       logger.success(
-        `state:chapter-preview chapter=${input.chapterId} source=${sourceType} characters=${extracted.payload.characters.length} factions=${extracted.payload.factions.length} hooks=${extracted.payload.hooks.length} items=${extracted.payload.items.length}`
+        `state:chapter-preview chapter=${input.chapterId} source=${sourceType} characters=${extracted.payload.characters.length} factions=${extracted.payload.factions.length} hooks=${extracted.payload.hooks.length} character_relations=${extracted.payload.character_relations.length} character_faction_relations=${extracted.payload.character_faction_relations.length} items=${extracted.payload.items.length}`
       );
 
       return {
@@ -151,6 +151,8 @@ export class StateService {
         characterSnapshotCount: syncResult.applied.characterSnapshotCount,
         factionSnapshotCount: syncResult.applied.factionSnapshotCount,
         hookSnapshotCount: syncResult.applied.hookSnapshotCount,
+        characterRelationCount: syncResult.applied.characterRelationCount,
+        characterFactionRelationCount: syncResult.applied.characterFactionRelationCount,
         itemStateCount: syncResult.applied.itemStateCount
       };
     } finally {

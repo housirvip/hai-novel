@@ -251,24 +251,40 @@ export const runtimeEnv = {
     chapterPlan: {
       /** 章规划偏创造性，但仍需要结构稳定，因此默认温度中等。 */
       temperature: readFloatEnv("NOVEL_AI_CHAPTER_PLAN_TEMPERATURE", 0.7, { min: 0 }),
-      /** 章规划输出不宜过长，避免计划本身膨胀失控。 */
-      maxOutputTokens: readIntegerEnv("NOVEL_AI_CHAPTER_PLAN_MAX_OUTPUT_TOKENS", 1400, {
+      /** 默认放宽到 16384，具体可再由项目环境变量覆盖。 */
+      maxOutputTokens: readIntegerEnv("NOVEL_AI_CHAPTER_PLAN_MAX_OUTPUT_TOKENS", 16384, {
+        min: 1
+      })
+    },
+    draftWrite: {
+      /** 写稿兼顾发散与稳定，默认温度略高于修稿。 */
+      temperature: readFloatEnv("NOVEL_AI_DRAFT_WRITE_TEMPERATURE", 0.8, { min: 0 }),
+      /** 正式写稿默认放宽到 16384。 */
+      maxOutputTokens: readIntegerEnv("NOVEL_AI_DRAFT_WRITE_MAX_OUTPUT_TOKENS", 16384, {
         min: 1
       })
     },
     draftFix: {
       /** 修稿需要在遵循问题清单和保留原意之间平衡，温度略低于规划。 */
       temperature: readFloatEnv("NOVEL_AI_DRAFT_FIX_TEMPERATURE", 0.6, { min: 0 }),
-      /** 修稿需要足够空间完成重写，因此 token 上限略高。 */
-      maxOutputTokens: readIntegerEnv("NOVEL_AI_DRAFT_FIX_MAX_OUTPUT_TOKENS", 1800, {
+      /** 修稿默认放宽到 16384。 */
+      maxOutputTokens: readIntegerEnv("NOVEL_AI_DRAFT_FIX_MAX_OUTPUT_TOKENS", 16384, {
+        min: 1
+      })
+    },
+    draftReview: {
+      /** 审查更强调稳定与结构化，因此温度保持较低。 */
+      temperature: readFloatEnv("NOVEL_AI_DRAFT_REVIEW_TEMPERATURE", 0.2, { min: 0 }),
+      /** AI 审查默认放宽到 16384。 */
+      maxOutputTokens: readIntegerEnv("NOVEL_AI_DRAFT_REVIEW_MAX_OUTPUT_TOKENS", 16384, {
         min: 1
       })
     },
     stateExtract: {
       /** 状态提取更强调稳定结构化输出，因此温度保持较低。 */
       temperature: readFloatEnv("NOVEL_AI_STATE_EXTRACT_TEMPERATURE", 0.2, { min: 0 }),
-      /** 状态提取只需要摘要级 JSON，不需要过高输出预算。 */
-      maxOutputTokens: readIntegerEnv("NOVEL_AI_STATE_EXTRACT_MAX_OUTPUT_TOKENS", 1200, {
+      /** 状态提取默认也统一放宽到 16384。 */
+      maxOutputTokens: readIntegerEnv("NOVEL_AI_STATE_EXTRACT_MAX_OUTPUT_TOKENS", 16384, {
         min: 1
       })
     }

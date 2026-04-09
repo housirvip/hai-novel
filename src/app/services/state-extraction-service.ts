@@ -223,6 +223,92 @@ export class StateExtractionService {
         })
       : [];
 
+    const characterRelations = Array.isArray(parsed.character_relations)
+      ? parsed.character_relations.flatMap((item) => {
+          if (
+            !item ||
+            typeof item !== "object" ||
+            typeof item.relation_type !== "string" ||
+            !item.relation_type.trim()
+          ) {
+            return [];
+          }
+
+          const characterId =
+            (typeof item.character_id === "number" && validCharacterIds.has(item.character_id)
+              ? item.character_id
+              : undefined) ?? this.resolveMappedId(item.character_name, characterNameMap);
+          const relatedCharacterId =
+            (typeof item.related_character_id === "number" &&
+            validCharacterIds.has(item.related_character_id)
+              ? item.related_character_id
+              : undefined) ?? this.resolveMappedId(item.related_character_name, characterNameMap);
+          const characterName = this.normalizeOptionalText(item.character_name);
+          const relatedCharacterName = this.normalizeOptionalText(item.related_character_name);
+
+          if ((!characterId && !characterName) || (!relatedCharacterId && !relatedCharacterName)) {
+            return [];
+          }
+
+          return [
+            {
+              character_id: characterId,
+              character_name: characterId ? undefined : characterName,
+              related_character_id: relatedCharacterId,
+              related_character_name: relatedCharacterId ? undefined : relatedCharacterName,
+              relation_type: item.relation_type.trim(),
+              summary: this.normalizeOptionalText(item.summary),
+              details: this.normalizeOptionalText(item.details),
+              intensity: this.normalizeOptionalInteger(item.intensity),
+              visibility: this.normalizeOptionalText(item.visibility)
+            }
+          ];
+        })
+      : [];
+
+    const characterFactionRelations = Array.isArray(parsed.character_faction_relations)
+      ? parsed.character_faction_relations.flatMap((item) => {
+          if (
+            !item ||
+            typeof item !== "object" ||
+            typeof item.relation_type !== "string" ||
+            !item.relation_type.trim()
+          ) {
+            return [];
+          }
+
+          const characterId =
+            (typeof item.character_id === "number" && validCharacterIds.has(item.character_id)
+              ? item.character_id
+              : undefined) ?? this.resolveMappedId(item.character_name, characterNameMap);
+          const factionId =
+            (typeof item.faction_id === "number" && validFactionIds.has(item.faction_id)
+              ? item.faction_id
+              : undefined) ?? this.resolveMappedId(item.faction_name, factionNameMap);
+          const characterName = this.normalizeOptionalText(item.character_name);
+          const factionName = this.normalizeOptionalText(item.faction_name);
+
+          if ((!characterId && !characterName) || (!factionId && !factionName)) {
+            return [];
+          }
+
+          return [
+            {
+              character_id: characterId,
+              character_name: characterId ? undefined : characterName,
+              faction_id: factionId,
+              faction_name: factionId ? undefined : factionName,
+              relation_type: item.relation_type.trim(),
+              title: this.normalizeOptionalText(item.title),
+              stance: this.normalizeOptionalText(item.stance),
+              summary: this.normalizeOptionalText(item.summary),
+              details: this.normalizeOptionalText(item.details),
+              is_primary: typeof item.is_primary === "boolean" ? item.is_primary : undefined
+            }
+          ];
+        })
+      : [];
+
     const items = Array.isArray(parsed.items)
       ? parsed.items.filter(
           (item): item is ExtractedChapterStatePayload["items"][number] =>
@@ -240,10 +326,12 @@ export class StateExtractionService {
       chapter_summary:
         typeof parsed.chapter_summary === "string" && parsed.chapter_summary.trim()
           ? parsed.chapter_summary.trim()
-          : `角色提及 ${characters.length} 个，势力提及 ${factions.length} 个，钩子跟踪 ${hooks.length} 条，物品提及 ${items.length} 个`,
+          : `角色提及 ${characters.length} 个，势力提及 ${factions.length} 个，钩子跟踪 ${hooks.length} 条，人物关系 ${characterRelations.length} 条，人物-势力关系 ${characterFactionRelations.length} 条，物品提及 ${items.length} 个`,
       characters,
       factions,
       hooks,
+      character_relations: characterRelations,
+      character_faction_relations: characterFactionRelations,
       items
     };
   }
