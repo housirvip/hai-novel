@@ -2,6 +2,10 @@
 
 这份文档按“从初始化到写完一章”的实际使用顺序，整理了当前项目里的所有 CLI 命令。
 
+如果你想看“某条命令执行后到底会改哪些状态、写哪些表”，可以配合阅读：
+
+- [command-state-matrix.md](/Users/housirvip/codex/hai-novel/docs/command-state-matrix.md)
+
 约定：
 
 - 开发态命令统一写成 `npm run dev -- ...`
