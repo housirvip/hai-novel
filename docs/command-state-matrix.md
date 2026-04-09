@@ -9,6 +9,10 @@
 - `command-guide.md` 更偏“怎么用”
 - 本文更偏“执行后系统会发生什么”
 
+配套阅读：
+
+- [architecture-state-flow.md](architecture-state-flow.md)
+
 ## 1. 核心判定规则
 
 先记住 5 条总规则：
