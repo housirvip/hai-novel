@@ -16,6 +16,12 @@
 - 生成历史、prompt 查看、AI 状态检查
 - 生成历史导出为 Markdown / JSON
 
+## 文档索引
+
+- [CLI 命令使用指南](./docs/command-guide.md)
+- [命令状态矩阵](./docs/command-state-matrix.md)
+- [模块责任与状态时序图](./docs/architecture-state-flow.md)
+
 ## 系统目标
 
 这个项目的目标不是让 AI 一次性“写完整本书”，而是把小说创作拆成一条可管理、可审阅、可回写、可追踪的生产线。
@@ -255,97 +261,6 @@ flowchart TD
 - 只有 `approve` 才会更新正式状态快照
 - `state chapter-preview` 只做预览，不会落正式库
 
-## 数据状态与写入原则
-
-### 1. 章节状态
-
-章节会在主流程里自动推进：
-
-- `created`：章节刚创建
-- `planning`：章节规划已生成并导出
-- `drafting`：草稿已生成
-- `reviewing`：已经执行过 `check` 或 `fix`
-- `done`：草稿已批准，正式文稿与正式状态都已落库
-
-### 2. Plan 状态
-
-`chapter_plans.status` 当前采用轻量策略：
-
-- `active`：当前有效规划
-- 旧规划在新规划生成后会归档，不再作为默认写稿输入
-
-### 3. Draft 状态
-
-`chapter_drafts.status` 体现的是稿件生命周期：
-
-- `generated`：AI 生成或修订后的当前稿件
-- `checked`：执行过 `check`，记录了 review 报告
-- `approved`：已转正为正式文稿
-- `dropped`：作者明确丢弃，不再参与默认导出和默认状态预览
-
-### 4. Hook 状态与章节内推进状态
-
-系统里和钩子相关的状态分成两层：
-
-- `story_hooks.status`
-  - 表示钩子全局层面的生命周期，例如 `pending / active / resolved / closed`
-- `hook_chapter_links.status`
-  - 表示钩子在某一章里的执行状态，例如 `planned / done / skipped`
-
-这也是为什么项目里仍然保留 hook 语义的 `planned`，但章节状态已经改成 `created`。
-
-### 5. 正式状态快照
-
-正式状态快照是“按章节批准结果沉淀”的，不是实时覆盖式状态表。
-
-优点：
-
-- 可以回看某章批准后，人物 / 势力 / 钩子 / 物品在当时被认定成什么状态
-- 后续需要补同步时，可以按章节重建，而不是直接覆盖全局现状
-- 便于做“截至第 N 章”的项目状态查看
-
-## 命令与状态变化对照
-
-下面这张表用于说明“执行某个命令后，数据库里哪些状态会变化，哪些不会变化”。
-
-| 命令 | 会变化的状态 / 字段 | 不会变化的内容 |
-| --- | --- | --- |
-| `chapter create` | `chapters.status -> created` | 不会生成 plan、draft、final，也不会写正式状态 |
-| `chapter plan` | 生成新的 `chapter_plans(active)`；旧 active plan 归档为 `archived`；`chapters.status -> planning`；写入 `generation_runs(chapter_plan)`；导出 plan Markdown | 不会更新人物、势力、钩子、物品等正式状态 |
-| `plan import` | 更新 `chapter_plans.plan_text / author_intent / source_version / last_imported_at / updated_from=manual_import` | 不会改变章节状态，不会写正式状态 |
-| `chapter export --source plan` | 更新 `chapter_plans.last_export_path / last_exported_at` | 不会改变章节状态，不会改动 plan 正文 |
-| `draft write` | 生成新的 `chapter_drafts(status=generated)`；`chapters.status -> drafting`；写入 `generation_runs(draft_write)`；导出 draft Markdown | 不会更新正式状态，不会写 `chapters.final_text` |
-| `draft review --action check` | `chapter_drafts.status -> checked`；更新 `review_report / review_notes`；`chapters.status -> reviewing`；写入 `generation_runs(draft_review_check)` | 不会更新 `final_text`，不会写正式状态快照 |
-| `draft review --action fix` | 当前 draft 会被修订并回写；`draft_text` 更新；`source_version +1`；`updated_from=ai_fix`；`status -> generated`；`chapters.status -> reviewing`；写入 `generation_runs(draft_review_fix)`；重新导出 draft Markdown | 不会更新正式状态，不会写 `chapters.final_text` |
-| `draft import` | 更新 `chapter_drafts.draft_text / status=generated / source_version / last_imported_at / updated_from=manual_import`；清空旧 `review_notes / review_report`；章节状态会按最新草稿重新推导 | 不会写正式状态；已 `approved` 或 `dropped` 的草稿禁止导入 |
-| `chapter export --source draft` | 更新 `chapter_drafts.last_export_path / last_exported_at` | 不会改变章节状态，不会改动 draft 正文 |
-| `draft drop` | `chapter_drafts.status -> dropped`；章节状态会按剩余数据重新推导：优先 `done`，否则 `reviewing / drafting / planning / created` | 不会写正式状态快照；已 `approved` 的草稿禁止 drop |
-| `draft review --action approve` | `chapter_drafts.status -> approved`；`chapters.final_text / approved_draft_id / status=done` 更新；写入 `chapter_state_snapshots` 和人物 / 势力 / 钩子正式快照；写入 `generation_runs(state_extract / draft_review_approve)`；导出 final Markdown | 不会保留“未正式生效”的状态，approve 就是正式落库点 |
-| `chapter export --source final` | 导出 final Markdown | 不会改变章节状态，也不会重建正式状态 |
-| `state chapter-preview` | 无数据库状态变化，只返回“如果现在抽取状态会得到什么”的预览结果 | 不会写快照，不会改章节状态 |
-| `state approve-sync` | 删除并重建当前章节已有的正式状态快照 | 不会改变 `chapters.status`，不会改 draft 状态 |
-| `hook bind` | 新增 `hook_chapter_links`；根据 `link_type` 可能自动更新 `story_hooks.status / start_chapter_id / end_chapter_id` | 不会改变章节创作状态 |
-| `hook update` | 更新 `story_hooks.status / start_chapter_id / target_chapter_id / end_chapter_id` | 不会改变章节创作状态 |
-
-补充约束：
-
-- `approved` draft 现在是冻结状态，不能再执行 `review / import / drop`
-- `dropped` draft 不再参与默认 `chapter export --source draft` 和 `state chapter-preview`
-- `plan / draft / check / fix` 都只影响创作中间态，不会更新正式世界状态
-- 只有 `approve` 才会把正文、正式状态快照和生成历史一起推进到“正式生效”
-
-## 模块协作关系
-
-如果把一次完整创作看成协作链路，大致是：
-
-1. 设定模块先沉淀世界基础事实：人物、势力、关系、设定、物品、钩子。
-2. 大纲模块决定全书、分卷、章节的结构目标。
-3. `ChapterContextBuilder` 把设定层和大纲层聚合成“本章写作上下文”。
-4. `ChapterService` 和 `DraftService` 调用 AI 生成 `plan / draft / fix`。
-5. `MarkdownSyncService` 让作者可以脱离 CLI，直接在 Markdown 中编辑。
-6. `ApprovalService` 在最后一跳把 draft 转成 final，并驱动正式状态同步。
-7. `RunService` 和 `StateService` 提供可追溯与可观测能力。
-
 ## 环境要求
 
 - Node.js `>= 20`
@@ -480,84 +395,11 @@ npm run dev -- draft import --draft 1 --input exports/chapter-001-draft.md --for
 - `exports/chapter-001-draft.md`
 - `exports/chapter-001-final.md`
 
-### 8. 章节状态流转
+更多命令示例、状态流转和边界说明，请直接看：
 
-章节会在主流程里自动推进状态：
-
-- `created`：刚创建章节
-- `planning`：已生成章节 plan
-- `drafting`：已生成 draft
-- `reviewing`：已执行 `check` 或 `fix`
-- `done`：已 `approve` 并写入正式文稿
-
-可通过以下命令查看：
-
-```bash
-npm run dev -- chapter show --id 1
-```
-
-### 9. dropped 草稿的默认行为
-
-- `draft drop` 后，该草稿不会再被默认的 `chapter export --source draft` 选中
-- `state chapter-preview` 默认也不会再使用被 dropped 的草稿
-- 如果某章最新草稿已经被 dropped，CLI 会明确提示，而不是继续拿这份稿件参与后续流程
-
-## 常用命令
-
-```bash
-novel init
-novel project create
-novel project list
-novel outline set
-novel outline show
-novel outline add
-novel outline list
-novel volume plan
-novel volume list
-novel faction add
-novel faction list
-novel character add
-novel character list
-novel relation character:add
-novel relation character:list
-novel relation faction:add
-novel relation faction:list
-novel lore add
-novel lore list
-novel item add
-novel item list
-novel item show
-novel character item:add
-novel character item:list
-novel character item:remove
-novel hook add
-novel hook list
-novel hook show
-novel hook bind
-novel hook update
-novel chapter create
-novel chapter show
-novel chapter plan
-novel chapter export
-novel plan show
-novel plan import
-novel draft write
-novel draft review
-novel draft drop
-novel draft import
-novel state show
-novel state chapter-preview
-novel state approve-sync
-novel run history
-novel run show
-novel run export
-novel prompt chapter-plan
-novel prompt draft-write
-novel prompt draft-fix
-novel ai status
-novel ai test
-novel ai doctor
-```
+- [./docs/command-guide.md](./docs/command-guide.md)
+- [./docs/command-state-matrix.md](./docs/command-state-matrix.md)
+- [./docs/architecture-state-flow.md](./docs/architecture-state-flow.md)
 
 ## AI Provider
 
@@ -697,8 +539,12 @@ src/
   domain/types/        # 统一领域类型与中文注释
   utils/               # 日志、路径、错误展示等通用能力
 docs/
+  architecture-state-flow.md
+  command-guide.md
+  command-state-matrix.md
   v1-plan.md
   v1-task-list.md
+  v2-plan.md
   v2-task-list.md
 test/
   *.test.mjs           # CLI、服务、迁移、错误语义等测试
