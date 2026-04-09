@@ -65,7 +65,7 @@ export function registerAICommands(program: Command): void {
         systemPrompt: "你是中文写作助手，请直接回答用户请求。",
         prompt: options.prompt,
         contextText: options.context ?? "",
-        maxOutputTokens: 300
+        maxOutputTokens: 512
       });
 
       console.table([

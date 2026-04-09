@@ -228,21 +228,35 @@ AI provider 类变量一般遵循下面的优先级：
 | 变量名 | 默认值 | 说明 |
 | --- | --- | --- |
 | `NOVEL_AI_CHAPTER_PLAN_TEMPERATURE` | `0.7` | 章节规划温度 |
-| `NOVEL_AI_CHAPTER_PLAN_MAX_OUTPUT_TOKENS` | `1400` | 章节规划输出上限 |
+| `NOVEL_AI_CHAPTER_PLAN_MAX_OUTPUT_TOKENS` | `16384` | 章节规划输出上限 |
+
+### draft write
+
+| 变量名 | 默认值 | 说明 |
+| --- | --- | --- |
+| `NOVEL_AI_DRAFT_WRITE_TEMPERATURE` | `0.8` | 草稿生成温度 |
+| `NOVEL_AI_DRAFT_WRITE_MAX_OUTPUT_TOKENS` | `16384` | 草稿生成输出上限 |
 
 ### draft fix
 
 | 变量名 | 默认值 | 说明 |
 | --- | --- | --- |
 | `NOVEL_AI_DRAFT_FIX_TEMPERATURE` | `0.6` | 草稿修订温度 |
-| `NOVEL_AI_DRAFT_FIX_MAX_OUTPUT_TOKENS` | `1800` | 草稿修订输出上限 |
+| `NOVEL_AI_DRAFT_FIX_MAX_OUTPUT_TOKENS` | `16384` | 草稿修订输出上限 |
+
+### draft review
+
+| 变量名 | 默认值 | 说明 |
+| --- | --- | --- |
+| `NOVEL_AI_DRAFT_REVIEW_TEMPERATURE` | `0.2` | 草稿审查温度 |
+| `NOVEL_AI_DRAFT_REVIEW_MAX_OUTPUT_TOKENS` | `16384` | 草稿审查输出上限 |
 
 ### state extract
 
 | 变量名 | 默认值 | 说明 |
 | --- | --- | --- |
 | `NOVEL_AI_STATE_EXTRACT_TEMPERATURE` | `0.2` | 状态提取温度 |
-| `NOVEL_AI_STATE_EXTRACT_MAX_OUTPUT_TOKENS` | `1200` | 状态提取输出上限 |
+| `NOVEL_AI_STATE_EXTRACT_MAX_OUTPUT_TOKENS` | `16384` | 状态提取输出上限 |
 
 说明：
 
@@ -272,7 +286,7 @@ AI provider 类变量一般遵循下面的优先级：
 例如：
 
 - `NOVEL_CONTEXT_MAX_CHARACTER_ITEMS=abc` 会回退到默认值 `8`
-- `NOVEL_AI_STATE_EXTRACT_MAX_OUTPUT_TOKENS=0` 会回退到默认值 `1200`
+- `NOVEL_AI_STATE_EXTRACT_MAX_OUTPUT_TOKENS=0` 会回退到默认值 `16384`
 
 ### 布尔变量
 

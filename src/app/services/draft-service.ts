@@ -87,7 +87,9 @@ export class DraftService {
         taskType: "chapter_draft",
         systemPrompt: buildDraftWriteSystemPrompt(),
         prompt,
-        contextText
+        contextText,
+        temperature: runtimeEnv.ai.draftWrite.temperature,
+        maxOutputTokens: runtimeEnv.ai.draftWrite.maxOutputTokens
       });
 
       logger.progress("draft:write 5/5 落库并导出 Markdown");
@@ -475,8 +477,8 @@ export class DraftService {
         systemPrompt: buildDraftReviewSystemPrompt(),
         prompt,
         contextText: formatChapterContextAsText(context),
-        temperature: 0.2,
-        maxOutputTokens: 1200
+        temperature: runtimeEnv.ai.draftReview.temperature,
+        maxOutputTokens: runtimeEnv.ai.draftReview.maxOutputTokens
       });
 
       const aiIssues = this.parseReviewIssues(result.text).map((issue) => ({
