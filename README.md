@@ -22,6 +22,7 @@
 - [命令状态矩阵](./docs/command-state-matrix.md)
 - [模块责任与状态时序图](./docs/architecture-state-flow.md)
 - [环境变量配置说明](./docs/env-config.md)
+- [AI 输入可读版清单](./docs/ai-input-readable-checklist.md)
 
 ## 系统目标
 
