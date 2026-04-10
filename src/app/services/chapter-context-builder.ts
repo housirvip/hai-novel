@@ -37,7 +37,6 @@ const HOOK_RELEVANCE = runtimeEnv.relevance.hook;
 const SNAPSHOT_BASE_SCORE = runtimeEnv.relevance.snapshotBaseScore;
 const HOOK_STATE_RESOLVED_BONUS = runtimeEnv.relevance.hookStateResolvedBonus;
 const HOOK_STATE_ADVANCED_BONUS = runtimeEnv.relevance.hookStateAdvancedBonus;
-const MAX_ITEM_CONTEXT_ITEMS = runtimeEnv.context.maxItemItems;
 const SQL_CANDIDATE_QUERY_LIMIT = runtimeEnv.context.sqlQueryLimit;
 const MAX_CHAPTER_SNAPSHOT_CONTEXT_ITEMS = runtimeEnv.context.maxChapterSnapshotItems;
 
