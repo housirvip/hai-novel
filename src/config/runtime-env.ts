@@ -115,10 +115,26 @@ export const runtimeEnv = {
       8,
       { min: 1 }
     ),
+    /** prompt 中最多保留多少条关键物品上下文。 */
+    maxItemItems: readIntegerEnv("NOVEL_CONTEXT_MAX_ITEM_ITEMS", 6, { min: 1 }),
     /** prompt 中最多保留多少条活跃钩子。 */
     maxHookItems: readIntegerEnv("NOVEL_CONTEXT_MAX_HOOK_ITEMS", 8, { min: 1 }),
     /** prompt 中最多保留多少条状态快照。 */
-    maxStateItems: readIntegerEnv("NOVEL_CONTEXT_MAX_STATE_ITEMS", 8, { min: 1 })
+    maxStateItems: readIntegerEnv("NOVEL_CONTEXT_MAX_STATE_ITEMS", 8, { min: 1 }),
+    /** 普通文本字段在 prompt 中的默认截断长度。 */
+    textFieldMaxLength: readIntegerEnv("NOVEL_CONTEXT_TEXT_FIELD_MAX_LENGTH", 512, {
+      min: 1
+    }),
+    /** 较长文本字段在 prompt 中的默认截断长度。 */
+    longTextFieldMaxLength: readIntegerEnv("NOVEL_CONTEXT_LONG_TEXT_FIELD_MAX_LENGTH", 512, {
+      min: 1
+    }),
+    /** 最近章节快照 raw_payload 预览在 prompt 中的默认截断长度。 */
+    snapshotRawPayloadPreviewLength: readIntegerEnv(
+      "NOVEL_CONTEXT_SNAPSHOT_RAW_PAYLOAD_PREVIEW_LENGTH",
+      512,
+      { min: 1 }
+    )
   },
   relevance: {
     character: {

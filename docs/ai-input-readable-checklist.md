@@ -167,7 +167,9 @@
 
 ### 物品上下文
 
-最多 `5` 项。
+按相关性排序后截断，当前默认最多 `6` 项，可由环境变量控制：
+
+- `NOVEL_CONTEXT_MAX_ITEM_ITEMS`
 
 优先显示“当前活跃持有关系”，否则回退到物品主档案。
 
@@ -223,6 +225,12 @@
 - 最近钩子状态
 
 其中每类对象默认最多 `8` 条。
+
+单字段文本长度也支持环境变量控制，当前默认值均为 `512`：
+
+- 普通文本字段：`NOVEL_CONTEXT_TEXT_FIELD_MAX_LENGTH`
+- 较长文本字段：`NOVEL_CONTEXT_LONG_TEXT_FIELD_MAX_LENGTH`
+- 最近章节快照原始 JSON 预览：`NOVEL_CONTEXT_SNAPSHOT_RAW_PAYLOAD_PREVIEW_LENGTH`
 
 最近人物状态会给：
 
@@ -344,14 +352,18 @@
 - `NOVEL_CONTEXT_MAX_LORE_ITEMS=8`
 - `NOVEL_CONTEXT_MAX_RELATION_ITEMS=8`
 - `NOVEL_CONTEXT_MAX_CHARACTER_FACTION_ITEMS=8`
+- `NOVEL_CONTEXT_MAX_ITEM_ITEMS=6`
 - `NOVEL_CONTEXT_MAX_HOOK_ITEMS=8`
 - `NOVEL_CONTEXT_MAX_STATE_ITEMS=8`
+- `NOVEL_CONTEXT_TEXT_FIELD_MAX_LENGTH=512`
+- `NOVEL_CONTEXT_LONG_TEXT_FIELD_MAX_LENGTH=512`
+- `NOVEL_CONTEXT_SNAPSHOT_RAW_PAYLOAD_PREVIEW_LENGTH=512`
 
 单字段文本目前还会做长度裁剪：
 
-- 普通文本字段：约 `80` 字符
-- 较长字段：约 `140` 字符
-- 最近章节快照原始 JSON 预览：约 `220` 字符
+- 普通文本字段：默认 `512` 字符
+- 较长字段：默认 `512` 字符
+- 最近章节快照原始 JSON 预览：默认 `512` 字符
 
 ## 6. 当前仍然没有直接传给 AI 的
 

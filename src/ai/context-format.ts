@@ -11,9 +11,11 @@ const MAX_RELATION_CONTEXT_ITEMS = runtimeEnv.context.maxRelationItems;
 const MAX_CHARACTER_FACTION_CONTEXT_ITEMS = runtimeEnv.context.maxCharacterFactionItems;
 const MAX_HOOK_CONTEXT_ITEMS = runtimeEnv.context.maxHookItems;
 const MAX_STATE_CONTEXT_ITEMS = runtimeEnv.context.maxStateItems;
-const MAX_ITEM_CONTEXT_ITEMS = 5;
-const MAX_TEXT_FIELD_LENGTH = 80;
-const MAX_LONG_TEXT_FIELD_LENGTH = 140;
+const MAX_ITEM_CONTEXT_ITEMS = runtimeEnv.context.maxItemItems;
+const MAX_TEXT_FIELD_LENGTH = runtimeEnv.context.textFieldMaxLength;
+const MAX_LONG_TEXT_FIELD_LENGTH = runtimeEnv.context.longTextFieldMaxLength;
+const MAX_SNAPSHOT_RAW_PAYLOAD_PREVIEW_LENGTH =
+  runtimeEnv.context.snapshotRawPayloadPreviewLength;
 
 export function formatChapterContextAsText(context: ChapterGenerationContext): string {
   const outlineSection =
@@ -255,7 +257,7 @@ export function formatChapterContextAsText(context: ChapterGenerationContext): s
         `- 最近正式状态章节：${context.latest_chapter_snapshot.chapter_id}`,
         `- 状态摘要：${truncateText(context.latest_chapter_snapshot.summary ?? "未提供", MAX_LONG_TEXT_FIELD_LENGTH)}`,
         context.latest_chapter_snapshot.raw_payload
-          ? `- 原始快照：${truncateText(context.latest_chapter_snapshot.raw_payload, 220)}`
+          ? `- 原始快照：${truncateText(context.latest_chapter_snapshot.raw_payload, MAX_SNAPSHOT_RAW_PAYLOAD_PREVIEW_LENGTH)}`
           : "- 原始快照：未提供"
       ].join("\n")
     : "- 当前还没有可用的正式状态快照。";

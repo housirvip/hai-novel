@@ -37,7 +37,7 @@ const HOOK_RELEVANCE = runtimeEnv.relevance.hook;
 const SNAPSHOT_BASE_SCORE = runtimeEnv.relevance.snapshotBaseScore;
 const HOOK_STATE_RESOLVED_BONUS = runtimeEnv.relevance.hookStateResolvedBonus;
 const HOOK_STATE_ADVANCED_BONUS = runtimeEnv.relevance.hookStateAdvancedBonus;
-const MAX_ITEM_CONTEXT_ITEMS = 5;
+const MAX_ITEM_CONTEXT_ITEMS = runtimeEnv.context.maxItemItems;
 
 export class ChapterContextBuilder {
   constructor(private readonly database: Database.Database) {}
