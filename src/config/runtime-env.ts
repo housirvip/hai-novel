@@ -117,6 +117,10 @@ export const runtimeEnv = {
     ),
     /** prompt 中最多保留多少条关键物品上下文。 */
     maxItemItems: readIntegerEnv("NOVEL_CONTEXT_MAX_ITEM_ITEMS", 6, { min: 1 }),
+    /** prompt 中最多保留多少条最近章节正式状态摘要。 */
+    maxChapterSnapshotItems: readIntegerEnv("NOVEL_CONTEXT_MAX_CHAPTER_SNAPSHOT_ITEMS", 5, {
+      min: 1
+    }),
     /** prompt 中最多保留多少条活跃钩子。 */
     maxHookItems: readIntegerEnv("NOVEL_CONTEXT_MAX_HOOK_ITEMS", 8, { min: 1 }),
     /** prompt 中最多保留多少条状态快照。 */

@@ -1117,7 +1117,7 @@ export interface ChapterGenerationContext {
   /** 当前仍处于 active 状态的钩子。 */
   active_hooks: StoryHookListItem[];
   /** 当前章节之前最近一次已批准的章节状态快照，可为空。 */
-  latest_chapter_snapshot: ChapterStateSnapshotRecord | null;
+  latest_chapter_snapshots: ChapterStateSnapshotRecord[];
   /** 当前章节之前各人物最近一次正式状态快照。 */
   latest_character_states: CharacterStateSnapshotRecord[];
   /** 当前章节之前各势力最近一次正式状态快照。 */

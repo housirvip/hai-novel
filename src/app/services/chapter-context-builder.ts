@@ -38,6 +38,7 @@ const SNAPSHOT_BASE_SCORE = runtimeEnv.relevance.snapshotBaseScore;
 const HOOK_STATE_RESOLVED_BONUS = runtimeEnv.relevance.hookStateResolvedBonus;
 const HOOK_STATE_ADVANCED_BONUS = runtimeEnv.relevance.hookStateAdvancedBonus;
 const MAX_ITEM_CONTEXT_ITEMS = runtimeEnv.context.maxItemItems;
+const MAX_CHAPTER_SNAPSHOT_CONTEXT_ITEMS = runtimeEnv.context.maxChapterSnapshotItems;
 
 export class ChapterContextBuilder {
   constructor(private readonly database: Database.Database) {}
@@ -100,7 +101,7 @@ export class ChapterContextBuilder {
     const chapterSnapshots = chapterStateSnapshotRepository
       .findAllByProjectId(input.projectId)
       .filter((snapshot) => snapshot.chapter_id < input.chapterId);
-    const latestChapterSnapshot = chapterSnapshots[0] ?? null;
+    const latestChapterSnapshots = chapterSnapshots.slice(0, MAX_CHAPTER_SNAPSHOT_CONTEXT_ITEMS);
     const latestCharacterStates = this.pickLatestSnapshotsByKey(
       characterStateSnapshotRepository
         .findAllByProjectId(input.projectId)
@@ -168,7 +169,7 @@ export class ChapterContextBuilder {
       hook_links: hookLinks,
       target_hooks: sortedTargetHooks,
       active_hooks: sortedActiveHooks,
-      latest_chapter_snapshot: latestChapterSnapshot,
+      latest_chapter_snapshots: latestChapterSnapshots,
       latest_character_states: sortedLatestCharacterStates,
       latest_faction_states: sortedLatestFactionStates,
       latest_hook_states: sortedLatestHookStates

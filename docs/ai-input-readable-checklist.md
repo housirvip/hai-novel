@@ -218,13 +218,16 @@
 
 当前会给：
 
-- 最近章节正式状态摘要
+- 最近 N 章正式状态摘要
 - 最近章节快照的原始 JSON 预览
 - 最近人物状态
 - 最近势力状态
 - 最近钩子状态
 
-其中每类对象默认最多 `8` 条。
+其中：
+
+- 最近章节正式状态摘要默认最多 `5` 条，由 `NOVEL_CONTEXT_MAX_CHAPTER_SNAPSHOT_ITEMS` 控制
+- 最近人物 / 势力 / 钩子状态默认最多 `8` 条，由 `NOVEL_CONTEXT_MAX_STATE_ITEMS` 控制
 
 单字段文本长度也支持环境变量控制，当前默认值均为 `512`：
 
@@ -353,6 +356,7 @@
 - `NOVEL_CONTEXT_MAX_RELATION_ITEMS=8`
 - `NOVEL_CONTEXT_MAX_CHARACTER_FACTION_ITEMS=8`
 - `NOVEL_CONTEXT_MAX_ITEM_ITEMS=6`
+- `NOVEL_CONTEXT_MAX_CHAPTER_SNAPSHOT_ITEMS=5`
 - `NOVEL_CONTEXT_MAX_HOOK_ITEMS=8`
 - `NOVEL_CONTEXT_MAX_STATE_ITEMS=8`
 - `NOVEL_CONTEXT_TEXT_FIELD_MAX_LENGTH=512`
