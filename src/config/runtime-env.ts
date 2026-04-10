@@ -118,7 +118,7 @@ export const runtimeEnv = {
     /** prompt 中最多保留多少条关键物品上下文。 */
     maxItemItems: readIntegerEnv("NOVEL_CONTEXT_MAX_ITEM_ITEMS", 6, { min: 1 }),
     /** 上下文构建时，单次 SQL 查询的候选池上限。 */
-    sqlQueryLimit: readIntegerEnv("NOVEL_CONTEXT_SQL_QUERY_LIMIT", 64, { min: 1 }),
+    sqlQueryLimit: readIntegerEnv("NOVEL_CONTEXT_SQL_QUERY_LIMIT", 512, { min: 1 }),
     /** prompt 中最多保留多少条最近章节正式状态摘要。 */
     maxChapterSnapshotItems: readIntegerEnv("NOVEL_CONTEXT_MAX_CHAPTER_SNAPSHOT_ITEMS", 5, {
       min: 1

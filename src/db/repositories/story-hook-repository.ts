@@ -125,8 +125,15 @@ export class StoryHookRepository {
     return statement.get(id);
   }
 
-  findAllByProjectId(projectId: number, status?: string, limit?: number): StoryHookListItem[] {
-    if (!status) {
+  findAllByProjectId(
+    projectId: number,
+    status?: string | string[],
+    limit?: number
+  ): StoryHookListItem[] {
+    const statuses =
+      status === undefined ? [] : Array.isArray(status) ? status.filter(Boolean) : [status];
+
+    if (statuses.length === 0) {
       if (limit === undefined) {
         const statement = this.database.prepare<[number], StoryHookListItem>(
           `SELECT
@@ -187,8 +194,10 @@ export class StoryHookRepository {
       return statement.all(projectId, limit);
     }
 
+    const statusPlaceholders = statuses.map(() => "?").join(", ");
+
     if (limit === undefined) {
-      const statement = this.database.prepare<[number, string], StoryHookListItem>(
+      const statement = this.database.prepare<any[], StoryHookListItem>(
         `SELECT
            h.id,
            h.project_id,
@@ -211,13 +220,13 @@ export class StoryHookRepository {
          LEFT JOIN chapters start_chapter ON start_chapter.id = h.start_chapter_id
          LEFT JOIN chapters target_chapter ON target_chapter.id = h.target_chapter_id
          LEFT JOIN chapters end_chapter ON end_chapter.id = h.end_chapter_id
-         WHERE h.project_id = ? AND h.status = ?
+         WHERE h.project_id = ? AND h.status IN (${statusPlaceholders})
          ORDER BY h.id ASC`
       );
-      return statement.all(projectId, status);
+      return statement.all(projectId, ...statuses);
     }
 
-    const statement = this.database.prepare<[number, string, number], StoryHookListItem>(
+    const statement = this.database.prepare<any[], StoryHookListItem>(
       `SELECT
          h.id,
          h.project_id,
@@ -240,10 +249,10 @@ export class StoryHookRepository {
        LEFT JOIN chapters start_chapter ON start_chapter.id = h.start_chapter_id
        LEFT JOIN chapters target_chapter ON target_chapter.id = h.target_chapter_id
        LEFT JOIN chapters end_chapter ON end_chapter.id = h.end_chapter_id
-       WHERE h.project_id = ? AND h.status = ?
+       WHERE h.project_id = ? AND h.status IN (${statusPlaceholders})
        ORDER BY h.updated_at DESC, h.id DESC
        LIMIT ?`
     );
-    return statement.all(projectId, status, limit);
+    return statement.all(projectId, ...statuses, limit);
   }
 }

@@ -112,13 +112,13 @@ export class ChapterContextBuilder {
       { limit: SQL_CANDIDATE_QUERY_LIMIT }
     );
     const hookLinks = hookLinkRepository.findAllByChapterId(input.chapterId);
-    const allHooks = hookRepository.findAllByProjectId(
+    const relevantHooks = hookRepository.findAllByProjectId(
       input.projectId,
-      undefined,
+      ["pending", "active"],
       SQL_CANDIDATE_QUERY_LIMIT
     );
-    const targetHooks = allHooks.filter((hook) => hook.target_chapter_id === input.chapterId);
-    const activeHooks = allHooks.filter((hook) => hook.status === "active");
+    const targetHooks = relevantHooks.filter((hook) => hook.target_chapter_id === input.chapterId);
+    const activeHooks = relevantHooks.filter((hook) => hook.status === "active");
     const chapterSnapshots = chapterStateSnapshotRepository.findRecentByProjectBeforeChapter(
       input.projectId,
       input.chapterId,
