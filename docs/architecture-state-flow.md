@@ -16,6 +16,7 @@
 
 - 用法说明见 [command-guide.md](command-guide.md)
 - 命令状态矩阵见 [command-state-matrix.md](command-state-matrix.md)
+- AI 输入清单见 [ai-input-readable-checklist.md](ai-input-readable-checklist.md)
 
 ## 1. 系统分层与责任边界
 
@@ -102,11 +103,13 @@ flowchart LR
 ```mermaid
 flowchart TD
   CS["ChapterService"] --> CCB["ChapterContextBuilder"]
+  CS --> CFP["Context Formatter / Plan Prompt"]
   CS --> CPR["ChapterPlanRepository"]
   CS --> CDR["ChapterDraftRepository"]
   CS --> CR["ChapterRepository"]
 
   DS["DraftService"] --> CCB
+  DS --> DWP["Draft Prompt / Review Prompt"]
   DS --> CDR
   DS --> CPR
   DS --> CR
@@ -130,12 +133,14 @@ flowchart TD
 - `chapter create`
 - `chapter plan`
 - `chapter export`
+- 组织 `chapter plan` 的 AI 输入
 
 关键边界：
 
 - 只负责章节创建、规划生成和导出
 - 不负责 review 语义
 - 不负责正式状态快照写入
+- `plan` 的 AI 输入由 `prompt + contextText` 组成，其中 `contextText` 由 `ChapterContextBuilder` 和上下文格式化层统一生成
 
 ### `DraftService`
 
@@ -145,12 +150,14 @@ flowchart TD
 - `draft review`
 - `draft drop`
 - `draft import`
+- 组织 `draft write` 与 `draft review` 的 AI 输入
 
 关键边界：
 
 - 负责草稿工作流
 - 负责章节状态从 `drafting/reviewing` 之间推进
 - 只有在 `approve` 时转交 `ApprovalService`
+- `review check` 现在默认是“规则检查 + AI 审查合并”，而不是纯本地规则
 
 ### `ApprovalService`
 
@@ -165,12 +172,14 @@ flowchart TD
 
 - 这是默认正式生效的唯一入口
 - 这里必须保证事务一致性
+- 在事务内统一完成：批准草稿、同步 final、状态提取结果落库、生成记录落库
 
 ### `StateExtractionService`
 
 负责：
 
 - 基于 final 或预览文本提取结构化状态
+- 允许提取已有对象的状态，也允许提取本章明确落地的新人物 / 新势力 / 新钩子 / 新关系
 
 关键边界：
 
@@ -182,10 +191,11 @@ flowchart TD
 负责：
 
 - 把已抽取好的正式状态写成快照
+- 在写快照前，自动补齐或更新主档案中的人物、势力、钩子、人物关系、人物-势力关系
 
 关键边界：
 
-- 只落库
+- 允许在正式落库阶段补建主档案与关系
 - 不做命令级状态机判断
 
 ### `PlanService`
@@ -207,6 +217,8 @@ sequenceDiagram
   participant U as User
   participant CLI as CLI
   participant CS as ChapterService
+  participant CCB as ChapterContextBuilder
+  participant AI as AI Provider
   participant DS as DraftService
   participant AS as ApprovalService
   participant DB as SQLite
@@ -218,6 +230,8 @@ sequenceDiagram
 
   U->>CLI: chapter plan
   CLI->>CS: generatePlan()
+  CS->>CCB: build chapter context
+  CS->>AI: chapter_plan(systemPrompt + prompt + contextText)
   CS->>DB: insert chapter_plans(active)
   CS->>DB: archive old active plans
   CS->>DB: update chapters.status = planning
@@ -226,6 +240,8 @@ sequenceDiagram
 
   U->>CLI: draft write
   CLI->>DS: writeDraft()
+  DS->>CCB: build chapter context
+  DS->>AI: chapter_draft(systemPrompt + plan + prompt + contextText)
   DS->>DB: insert chapter_drafts(status=generated)
   DS->>DB: update chapters.status = drafting
   DS->>DB: insert generation_runs(draft_write)
@@ -233,6 +249,7 @@ sequenceDiagram
 
   U->>CLI: draft review --action check/fix
   CLI->>DS: reviewDraft()
+  DS->>AI: draft_review_check(规则问题 + prompt + contextText)
   DS->>DB: update draft / review data
   DS->>DB: update chapters.status = reviewing
 
@@ -242,6 +259,7 @@ sequenceDiagram
   AS->>DB: update chapter_drafts.status = approved
   AS->>DB: update chapters.final_text / approved_draft_id / status = done
   AS->>DB: insert chapter_state_snapshots
+  AS->>DB: create or update characters/factions/hooks/relations if extracted
   AS->>DB: insert character/faction/hook snapshots
   AS->>DB: insert generation_runs(state_extract, draft_review_approve)
   Note over DB: 导出 chapter-xxx-final.md
@@ -323,11 +341,13 @@ sequenceDiagram
 
   DS->>AS: approveDraft()
   AS->>SES: extractChapterState(finalText=draft_text)
-  SES-->>AS: structured payload
+  SES-->>AS: structured payload(existing + new entities/relations)
   AS->>DB: begin transaction
   AS->>DB: update chapter_drafts.status = approved
   AS->>DB: update chapters.final_text / status = done
   AS->>SUS: applyChapterState(payload)
+  SUS->>DB: create or update characters/factions/hooks if needed
+  SUS->>DB: create or update character relations / character-faction relations if needed
   SUS->>DB: insert chapter snapshot
   SUS->>DB: insert character/faction/hook snapshots
   AS->>DB: insert generation_runs
@@ -361,8 +381,53 @@ sequenceDiagram
 - `approve-sync` 是重建正式状态，不是创作状态推进
 - 它不能替代 `approve`
 - 它也不应该改 `chapters.status`
+- 但它会复用同一套状态抽取与正式落库逻辑，因此同样可能补齐新对象和关系
 
-## 6. 命令扩展时的判断清单
+## 6. AI 输入在主链路中的位置
+
+### `chapter plan`
+
+当前输入结构是：
+
+- `systemPrompt`：规划助手角色与输出约束
+- `prompt`：章节标题、章节摘要、作者意图、规划要求
+- `contextText`：项目、章节、大纲、人物、势力、设定、关系、物品、钩子、最近正式状态
+
+实现位置：
+
+- `src/app/services/chapter-service.ts`
+- `src/ai/prompts/chapter-plan-prompt.ts`
+- `src/ai/context-format.ts`
+
+### `draft write`
+
+当前输入结构是：
+
+- `systemPrompt`：写作助手角色与输出约束
+- `prompt`：章节标题、章节摘要、作者意图、额外指令、当前 plan 全文、本章钩子、关键物品
+- `contextText`：与 `plan` 共用的统一章节上下文
+
+实现位置：
+
+- `src/app/services/draft-service.ts`
+- `src/ai/prompts/draft-write-prompt.ts`
+- `src/ai/context-format.ts`
+
+### `draft review --action check`
+
+当前不是纯规则检查，而是：
+
+- 先做本地规则检查
+- 再把规则问题、草稿正文与统一上下文一起交给 AI 审查
+- 最后合并去重后落库到 `review_report`
+
+实现位置：
+
+- `src/app/services/draft-service.ts`
+- `src/ai/prompts/draft-review-prompt.ts`
+
+完整可读版见 [ai-input-readable-checklist.md](ai-input-readable-checklist.md)
+## 7. 命令扩展时的判断清单
 
 新增命令前，建议先问 6 个问题：
 
@@ -403,7 +468,7 @@ sequenceDiagram
 - `plan import`
 - `draft import`
 
-## 7. 当前最重要的不变量
+## 8. 当前最重要的不变量
 
 ### 不变量 1：正式状态只能来源于已批准内容
 
@@ -417,6 +482,11 @@ sequenceDiagram
 - plan
 - 未批准 draft
 - 预览结果
+
+补充：
+
+- 即使 `StateUpdateService` 会补建新人物、势力、钩子和关系，这些补建动作也只能发生在正式状态链路里
+- 不能在 `draft write`、`review check`、`review fix` 阶段把 AI 推测写回主档案
 
 ### 不变量 2：Repository 不应该偷偷推进章节状态
 
@@ -432,6 +502,10 @@ sequenceDiagram
 - 文本版本已经变了
 - 旧问题报告不再可信
 
+补充：
+
+- 当前 `review check` 已经引入 AI 审查，因此“失效”不仅包括旧规则结论，也包括旧 AI 审查结果
+
 ### 不变量 4：跨项目引用必须在 service 层拦住
 
 原因：
@@ -439,7 +513,7 @@ sequenceDiagram
 - Repository 很难知道命令语义
 - service 最清楚当前命令的 project / chapter 上下文
 
-## 8. 后续扩展建议
+## 9. 后续扩展建议
 
 如果后面要做 v3，建议继续沿用现在的切分方式：
 
@@ -452,3 +526,4 @@ sequenceDiagram
 - 创作中间态和正式状态不混
 - Markdown 回写有边界
 - 命令扩展后仍然容易 review 和回归测试
+- AI 输入增强可以在 `context-format.ts` 和专用 prompt 中演进，而不用把主业务流打散
