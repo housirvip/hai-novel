@@ -125,9 +125,39 @@ export class StoryHookRepository {
     return statement.get(id);
   }
 
-  findAllByProjectId(projectId: number, status?: string): StoryHookListItem[] {
+  findAllByProjectId(projectId: number, status?: string, limit?: number): StoryHookListItem[] {
     if (!status) {
-      const statement = this.database.prepare<[number], StoryHookListItem>(
+      if (limit === undefined) {
+        const statement = this.database.prepare<[number], StoryHookListItem>(
+          `SELECT
+             h.id,
+             h.project_id,
+             h.title,
+             h.hook_type,
+             h.summary,
+             h.setup_text,
+             h.payoff_text,
+             h.status,
+             h.priority,
+             h.start_chapter_id,
+             h.target_chapter_id,
+             h.end_chapter_id,
+             h.created_at,
+             h.updated_at,
+             start_chapter.title AS start_chapter_title,
+             target_chapter.title AS target_chapter_title,
+             end_chapter.title AS end_chapter_title
+           FROM story_hooks h
+           LEFT JOIN chapters start_chapter ON start_chapter.id = h.start_chapter_id
+           LEFT JOIN chapters target_chapter ON target_chapter.id = h.target_chapter_id
+           LEFT JOIN chapters end_chapter ON end_chapter.id = h.end_chapter_id
+           WHERE h.project_id = ?
+           ORDER BY h.id ASC`
+        );
+        return statement.all(projectId);
+      }
+
+      const statement = this.database.prepare<[number, number], StoryHookListItem>(
         `SELECT
            h.id,
            h.project_id,
@@ -151,12 +181,43 @@ export class StoryHookRepository {
          LEFT JOIN chapters target_chapter ON target_chapter.id = h.target_chapter_id
          LEFT JOIN chapters end_chapter ON end_chapter.id = h.end_chapter_id
          WHERE h.project_id = ?
-         ORDER BY h.id ASC`
+         ORDER BY h.updated_at DESC, h.id DESC
+         LIMIT ?`
       );
-      return statement.all(projectId);
+      return statement.all(projectId, limit);
     }
 
-    const statement = this.database.prepare<[number, string], StoryHookListItem>(
+    if (limit === undefined) {
+      const statement = this.database.prepare<[number, string], StoryHookListItem>(
+        `SELECT
+           h.id,
+           h.project_id,
+           h.title,
+           h.hook_type,
+           h.summary,
+           h.setup_text,
+           h.payoff_text,
+           h.status,
+           h.priority,
+           h.start_chapter_id,
+           h.target_chapter_id,
+           h.end_chapter_id,
+           h.created_at,
+           h.updated_at,
+           start_chapter.title AS start_chapter_title,
+           target_chapter.title AS target_chapter_title,
+           end_chapter.title AS end_chapter_title
+         FROM story_hooks h
+         LEFT JOIN chapters start_chapter ON start_chapter.id = h.start_chapter_id
+         LEFT JOIN chapters target_chapter ON target_chapter.id = h.target_chapter_id
+         LEFT JOIN chapters end_chapter ON end_chapter.id = h.end_chapter_id
+         WHERE h.project_id = ? AND h.status = ?
+         ORDER BY h.id ASC`
+      );
+      return statement.all(projectId, status);
+    }
+
+    const statement = this.database.prepare<[number, string, number], StoryHookListItem>(
       `SELECT
          h.id,
          h.project_id,
@@ -180,8 +241,9 @@ export class StoryHookRepository {
        LEFT JOIN chapters target_chapter ON target_chapter.id = h.target_chapter_id
        LEFT JOIN chapters end_chapter ON end_chapter.id = h.end_chapter_id
        WHERE h.project_id = ? AND h.status = ?
-       ORDER BY h.id ASC`
+       ORDER BY h.updated_at DESC, h.id DESC
+       LIMIT ?`
     );
-    return statement.all(projectId, status);
+    return statement.all(projectId, status, limit);
   }
 }

@@ -38,7 +38,11 @@ export class CharacterRelationRepository {
     return relation;
   }
 
-  findAllByProjectId(projectId: number, characterId?: number): CharacterRelationListItem[] {
+  findAllByProjectId(
+    projectId: number,
+    characterId?: number,
+    limit?: number
+  ): CharacterRelationListItem[] {
     const baseSql = `
       SELECT
         cr.id,
@@ -63,18 +67,38 @@ export class CharacterRelationRepository {
 
     // 过滤逻辑放在 SQL 层，命令层就能同时支持全量视图和单角色视图。
     if (characterId === undefined) {
-      const statement = this.database.prepare<[number], CharacterRelationListItem>(
-        `${baseSql} ORDER BY cr.id ASC`
+      if (limit === undefined) {
+        const statement = this.database.prepare<[number], CharacterRelationListItem>(
+          `${baseSql} ORDER BY cr.id ASC`
+        );
+        return statement.all(projectId);
+      }
+
+      const statement = this.database.prepare<[number, number], CharacterRelationListItem>(
+        `${baseSql} ORDER BY cr.updated_at DESC, cr.id DESC LIMIT ?`
       );
-      return statement.all(projectId);
+      return statement.all(projectId, limit);
     }
 
-    const statement = this.database.prepare<[number, number, number], CharacterRelationListItem>(
+    if (limit === undefined) {
+      const statement = this.database.prepare<[number, number, number], CharacterRelationListItem>(
+        `${baseSql}
+         AND (cr.character_id = ? OR cr.related_character_id = ?)
+         ORDER BY cr.id ASC`
+      );
+      return statement.all(projectId, characterId, characterId);
+    }
+
+    const statement = this.database.prepare<
+      [number, number, number, number],
+      CharacterRelationListItem
+    >(
       `${baseSql}
        AND (cr.character_id = ? OR cr.related_character_id = ?)
-       ORDER BY cr.id ASC`
+       ORDER BY cr.updated_at DESC, cr.id DESC
+       LIMIT ?`
     );
-    return statement.all(projectId, characterId, characterId);
+    return statement.all(projectId, characterId, characterId, limit);
   }
 
   findById(id: number): CharacterRelationRecord | undefined {

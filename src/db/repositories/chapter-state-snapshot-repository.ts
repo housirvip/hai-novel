@@ -80,6 +80,31 @@ export class ChapterStateSnapshotRepository {
       .all(projectId);
   }
 
+  findRecentByProjectBeforeChapter(
+    projectId: number,
+    chapterId: number,
+    limit: number
+  ): ChapterStateSnapshotRecord[] {
+    return this.database
+      .prepare<[number, number, number], ChapterStateSnapshotRecord>(
+        `SELECT
+           id,
+           project_id,
+           chapter_id,
+           source_draft_id,
+           status,
+           summary,
+           raw_payload,
+           applied_at,
+           created_at
+         FROM chapter_state_snapshots
+         WHERE project_id = ? AND chapter_id < ?
+         ORDER BY chapter_id DESC, id DESC
+         LIMIT ?`
+      )
+      .all(projectId, chapterId, limit);
+  }
+
   findAllByChapterId(chapterId: number): ChapterStateSnapshotRecord[] {
     return this.database
       .prepare<[number], ChapterStateSnapshotRecord>(

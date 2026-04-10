@@ -116,6 +116,55 @@ export class OutlineRepository {
     return statement.all(projectId);
   }
 
+  findRootByProjectId(projectId: number, limit?: number): OutlineListItem[] {
+    if (limit === undefined) {
+      const statement = this.database.prepare<[number], OutlineListItem>(
+        `SELECT
+           o.id,
+           o.project_id,
+           o.parent_id,
+           o.node_type,
+           o.title,
+           o.summary,
+           o.goal,
+           o.conflict,
+           o.outcome,
+           o.position,
+           o.created_at,
+           o.updated_at,
+           parent.title AS parent_title
+         FROM outlines o
+         LEFT JOIN outlines parent ON parent.id = o.parent_id
+         WHERE o.project_id = ? AND o.parent_id IS NULL
+         ORDER BY o.position ASC, o.id ASC`
+      );
+      return statement.all(projectId);
+    }
+
+    const statement = this.database.prepare<[number, number], OutlineListItem>(
+      `SELECT
+         o.id,
+         o.project_id,
+         o.parent_id,
+         o.node_type,
+         o.title,
+         o.summary,
+         o.goal,
+         o.conflict,
+         o.outcome,
+         o.position,
+         o.created_at,
+         o.updated_at,
+         parent.title AS parent_title
+       FROM outlines o
+       LEFT JOIN outlines parent ON parent.id = o.parent_id
+       WHERE o.project_id = ? AND o.parent_id IS NULL
+       ORDER BY o.position ASC, o.id ASC
+       LIMIT ?`
+    );
+    return statement.all(projectId, limit);
+  }
+
   findAllByProjectIdAndType(projectId: number, nodeType: string): OutlineListItem[] {
     const statement = this.database.prepare<[number, string], OutlineListItem>(
       `SELECT

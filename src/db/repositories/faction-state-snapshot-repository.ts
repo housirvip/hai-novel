@@ -80,6 +80,31 @@ export class FactionStateSnapshotRepository {
       .all(projectId);
   }
 
+  findRecentByProjectBeforeChapter(
+    projectId: number,
+    chapterId: number,
+    limit: number
+  ): FactionStateSnapshotRecord[] {
+    return this.database
+      .prepare<[number, number, number], FactionStateSnapshotRecord>(
+        `SELECT
+           id,
+           project_id,
+           faction_id,
+           chapter_id,
+           chapter_snapshot_id,
+           status_summary,
+           power_shift,
+           external_relation_summary,
+           created_at
+         FROM faction_state_snapshots
+         WHERE project_id = ? AND chapter_id < ?
+         ORDER BY chapter_id DESC, id DESC
+         LIMIT ?`
+      )
+      .all(projectId, chapterId, limit);
+  }
+
   findAllByChapterId(chapterId: number): FactionStateSnapshotRecord[] {
     return this.database
       .prepare<[number], FactionStateSnapshotRecord>(

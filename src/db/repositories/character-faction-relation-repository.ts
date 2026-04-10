@@ -51,7 +51,7 @@ export class CharacterFactionRelationRepository {
 
   findAllByProjectId(
     projectId: number,
-    filters?: { characterId?: number; factionId?: number }
+    filters?: { characterId?: number; factionId?: number; limit?: number }
   ): CharacterFactionRelationListItem[] {
     // 逐步拼接过滤条件，让一个查询同时支持项目全量和按人物/势力筛选。
     const conditions: string[] = ["cfr.project_id = ?"];
@@ -66,6 +66,9 @@ export class CharacterFactionRelationRepository {
       conditions.push("cfr.faction_id = ?");
       params.push(filters.factionId);
     }
+
+    const limitClause = filters?.limit !== undefined ? " LIMIT ?" : "";
+    const queryParams = filters?.limit !== undefined ? [...params, filters.limit] : params;
 
     const statement = this.database.prepare<number[], CharacterFactionRelationListItem>(
       `SELECT
@@ -88,9 +91,9 @@ export class CharacterFactionRelationRepository {
        JOIN characters c ON c.id = cfr.character_id
        JOIN factions f ON f.id = cfr.faction_id
        WHERE ${conditions.join(" AND ")}
-       ORDER BY cfr.id ASC`
+       ORDER BY cfr.updated_at DESC, cfr.id DESC${limitClause}`
     );
-    return statement.all(...params);
+    return statement.all(...queryParams);
   }
 
   findById(id: number): CharacterFactionRelationRecord | undefined {

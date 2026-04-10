@@ -154,6 +154,7 @@ AI provider 类变量一般遵循下面的优先级：
 | `NOVEL_CONTEXT_MAX_RELATION_ITEMS` | `8` | 最多保留多少条人物关系 |
 | `NOVEL_CONTEXT_MAX_CHARACTER_FACTION_ITEMS` | `8` | 最多保留多少条人物-势力关系 |
 | `NOVEL_CONTEXT_MAX_ITEM_ITEMS` | `6` | 最多保留多少条关键物品上下文 |
+| `NOVEL_CONTEXT_SQL_QUERY_LIMIT` | `64` | 上下文构建时，单次 SQL 查询的候选池上限 |
 | `NOVEL_CONTEXT_MAX_CHAPTER_SNAPSHOT_ITEMS` | `5` | 最多保留多少条最近章节正式状态摘要 |
 | `NOVEL_CONTEXT_MAX_HOOK_ITEMS` | `8` | 最多保留多少条钩子 |
 | `NOVEL_CONTEXT_MAX_STATE_ITEMS` | `8` | 最多保留多少条人物 / 势力 / 钩子正式状态快照 |
@@ -165,6 +166,7 @@ AI provider 类变量一般遵循下面的优先级：
 
 - 项目角色特别多、钩子特别多时，可适当增大
 - 如果 prompt 太长、成本太高，可适当缩小
+- 如果数据库很大、上下文构建变慢，可先尝试缩小 `NOVEL_CONTEXT_SQL_QUERY_LIMIT`
 
 ## 7. 相关性打分参数
 
@@ -351,6 +353,7 @@ CUSTOM_AI_REQUIRE_API_KEY=true
 NOVEL_CONTEXT_MAX_CHARACTER_ITEMS=12
 NOVEL_CONTEXT_MAX_FACTION_ITEMS=8
 NOVEL_CONTEXT_MAX_ITEM_ITEMS=6
+NOVEL_CONTEXT_SQL_QUERY_LIMIT=96
 NOVEL_CONTEXT_MAX_CHAPTER_SNAPSHOT_ITEMS=8
 NOVEL_CONTEXT_MAX_HOOK_ITEMS=12
 NOVEL_CONTEXT_MAX_STATE_ITEMS=12

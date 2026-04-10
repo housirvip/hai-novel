@@ -38,6 +38,7 @@ const SNAPSHOT_BASE_SCORE = runtimeEnv.relevance.snapshotBaseScore;
 const HOOK_STATE_RESOLVED_BONUS = runtimeEnv.relevance.hookStateResolvedBonus;
 const HOOK_STATE_ADVANCED_BONUS = runtimeEnv.relevance.hookStateAdvancedBonus;
 const MAX_ITEM_CONTEXT_ITEMS = runtimeEnv.context.maxItemItems;
+const SQL_CANDIDATE_QUERY_LIMIT = runtimeEnv.context.sqlQueryLimit;
 const MAX_CHAPTER_SNAPSHOT_CONTEXT_ITEMS = runtimeEnv.context.maxChapterSnapshotItems;
 
 export class ChapterContextBuilder {
@@ -80,44 +81,73 @@ export class ChapterContextBuilder {
     }
 
     const outlineChain = this.resolveOutlineChain(outlineRepository, chapter.outline_id);
-    const rootOutlines = outlineRepository
-      .findAllByProjectId(input.projectId)
-      .filter((item) => item.parent_id === null);
-    const characters = characterRepository.findAllByProjectId(input.projectId);
-    const factions = factionRepository.findAllByProjectId(input.projectId);
-    const items = itemRepository.findAllByProjectId(input.projectId);
+    const rootOutlines = outlineRepository.findRootByProjectId(
+      input.projectId,
+      SQL_CANDIDATE_QUERY_LIMIT
+    );
+    const characters = characterRepository.findAllByProjectId(
+      input.projectId,
+      SQL_CANDIDATE_QUERY_LIMIT
+    );
+    const factions = factionRepository.findAllByProjectId(
+      input.projectId,
+      SQL_CANDIDATE_QUERY_LIMIT
+    );
+    const items = itemRepository.findAllByProjectId(input.projectId, SQL_CANDIDATE_QUERY_LIMIT);
     const activeCharacterItems = characterItemRepository.findAllByProjectId(input.projectId, {
-      activeOnly: true
+      activeOnly: true,
+      limit: SQL_CANDIDATE_QUERY_LIMIT
     });
-    const loreEntries = loreRepository.findAllByProjectId(input.projectId);
-    const characterRelations = characterRelationRepository.findAllByProjectId(input.projectId);
+    const loreEntries = loreRepository.findAllByProjectId(
+      input.projectId,
+      undefined,
+      SQL_CANDIDATE_QUERY_LIMIT
+    );
+    const characterRelations = characterRelationRepository.findAllByProjectId(
+      input.projectId,
+      undefined,
+      SQL_CANDIDATE_QUERY_LIMIT
+    );
     const characterFactionRelations = characterFactionRelationRepository.findAllByProjectId(
-      input.projectId
+      input.projectId,
+      { limit: SQL_CANDIDATE_QUERY_LIMIT }
     );
     const hookLinks = hookLinkRepository.findAllByChapterId(input.chapterId);
-    const allHooks = hookRepository.findAllByProjectId(input.projectId);
+    const allHooks = hookRepository.findAllByProjectId(
+      input.projectId,
+      undefined,
+      SQL_CANDIDATE_QUERY_LIMIT
+    );
     const targetHooks = allHooks.filter((hook) => hook.target_chapter_id === input.chapterId);
     const activeHooks = allHooks.filter((hook) => hook.status === "active");
-    const chapterSnapshots = chapterStateSnapshotRepository
-      .findAllByProjectId(input.projectId)
-      .filter((snapshot) => snapshot.chapter_id < input.chapterId);
+    const chapterSnapshots = chapterStateSnapshotRepository.findRecentByProjectBeforeChapter(
+      input.projectId,
+      input.chapterId,
+      SQL_CANDIDATE_QUERY_LIMIT
+    );
     const latestChapterSnapshots = chapterSnapshots.slice(0, MAX_CHAPTER_SNAPSHOT_CONTEXT_ITEMS);
     const latestCharacterStates = this.pickLatestSnapshotsByKey(
-      characterStateSnapshotRepository
-        .findAllByProjectId(input.projectId)
-        .filter((snapshot) => snapshot.chapter_id < input.chapterId),
+      characterStateSnapshotRepository.findRecentByProjectBeforeChapter(
+        input.projectId,
+        input.chapterId,
+        SQL_CANDIDATE_QUERY_LIMIT
+      ),
       (snapshot) => snapshot.character_id
     );
     const latestFactionStates = this.pickLatestSnapshotsByKey(
-      factionStateSnapshotRepository
-        .findAllByProjectId(input.projectId)
-        .filter((snapshot) => snapshot.chapter_id < input.chapterId),
+      factionStateSnapshotRepository.findRecentByProjectBeforeChapter(
+        input.projectId,
+        input.chapterId,
+        SQL_CANDIDATE_QUERY_LIMIT
+      ),
       (snapshot) => snapshot.faction_id
     );
     const latestHookStates = this.pickLatestSnapshotsByKey(
-      hookStateSnapshotRepository
-        .findAllByProjectId(input.projectId)
-        .filter((snapshot) => snapshot.chapter_id < input.chapterId),
+      hookStateSnapshotRepository.findRecentByProjectBeforeChapter(
+        input.projectId,
+        input.chapterId,
+        SQL_CANDIDATE_QUERY_LIMIT
+      ),
       (snapshot) => snapshot.hook_id
     );
     const relevanceInput = {

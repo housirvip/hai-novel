@@ -33,14 +33,25 @@ export class FactionRepository {
     return faction;
   }
 
-  findAllByProjectId(projectId: number): FactionRecord[] {
-    const statement = this.database.prepare<[number], FactionRecord>(
+  findAllByProjectId(projectId: number, limit?: number): FactionRecord[] {
+    if (limit === undefined) {
+      const statement = this.database.prepare<[number], FactionRecord>(
+        `SELECT id, project_id, name, type, leader, goal, stance, summary, details, created_at, updated_at
+         FROM factions
+         WHERE project_id = ?
+         ORDER BY id ASC`
+      );
+      return statement.all(projectId);
+    }
+
+    const statement = this.database.prepare<[number, number], FactionRecord>(
       `SELECT id, project_id, name, type, leader, goal, stance, summary, details, created_at, updated_at
        FROM factions
        WHERE project_id = ?
-       ORDER BY id ASC`
+       ORDER BY updated_at DESC, id DESC
+       LIMIT ?`
     );
-    return statement.all(projectId);
+    return statement.all(projectId, limit);
   }
 
   findById(id: number): FactionRecord | undefined {

@@ -73,6 +73,30 @@ export class HookStateSnapshotRepository {
       .all(projectId);
   }
 
+  findRecentByProjectBeforeChapter(
+    projectId: number,
+    chapterId: number,
+    limit: number
+  ): HookStateSnapshotRecord[] {
+    return this.database
+      .prepare<[number, number, number], HookStateSnapshotRecord>(
+        `SELECT
+           id,
+           project_id,
+           hook_id,
+           chapter_id,
+           chapter_snapshot_id,
+           progress_status,
+           progress_note,
+           created_at
+         FROM hook_state_snapshots
+         WHERE project_id = ? AND chapter_id < ?
+         ORDER BY chapter_id DESC, id DESC
+         LIMIT ?`
+      )
+      .all(projectId, chapterId, limit);
+  }
+
   findAllByChapterId(chapterId: number): HookStateSnapshotRecord[] {
     return this.database
       .prepare<[number], HookStateSnapshotRecord>(

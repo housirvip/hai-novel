@@ -70,7 +70,7 @@ export class CharacterItemRepository {
   // 查询人物持有物关系明细，并带出角色名、物品名和章节标题方便直接展示。
   findAllByProjectId(
     projectId: number,
-    filters?: { characterId?: number; itemId?: number; activeOnly?: boolean }
+    filters?: { characterId?: number; itemId?: number; activeOnly?: boolean; limit?: number }
   ): CharacterItemListItem[] {
     const conditions: string[] = ["ci.project_id = ?"];
     const params: number[] = [projectId];
@@ -89,6 +89,9 @@ export class CharacterItemRepository {
       // 结束章节为空表示当前仍处于持有中。
       conditions.push("ci.end_chapter_id IS NULL");
     }
+
+    const limitClause = filters?.limit !== undefined ? " LIMIT ?" : "";
+    const queryParams = filters?.limit !== undefined ? [...params, filters.limit] : params;
 
     const statement = this.database.prepare<number[], CharacterItemListItem>(
       `SELECT
@@ -114,10 +117,10 @@ export class CharacterItemRepository {
        LEFT JOIN chapters sc ON sc.id = ci.start_chapter_id
        LEFT JOIN chapters ec ON ec.id = ci.end_chapter_id
        WHERE ${conditions.join(" AND ")}
-       ORDER BY ci.id ASC`
+       ORDER BY ci.updated_at DESC, ci.id DESC${limitClause}`
     );
 
-    return statement.all(...params);
+    return statement.all(...queryParams);
   }
 
   // 通过关系主键读取原始持有关系记录。

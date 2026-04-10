@@ -98,6 +98,33 @@ export class CharacterStateSnapshotRepository {
       .all(projectId);
   }
 
+  findRecentByProjectBeforeChapter(
+    projectId: number,
+    chapterId: number,
+    limit: number
+  ): CharacterStateSnapshotRecord[] {
+    return this.database
+      .prepare<[number, number, number], CharacterStateSnapshotRecord>(
+        `SELECT
+           id,
+           project_id,
+           character_id,
+           chapter_id,
+           chapter_snapshot_id,
+           status_summary,
+           location,
+           goal,
+           public_impression,
+           internal_state,
+           created_at
+         FROM character_state_snapshots
+         WHERE project_id = ? AND chapter_id < ?
+         ORDER BY chapter_id DESC, id DESC
+         LIMIT ?`
+      )
+      .all(projectId, chapterId, limit);
+  }
+
   findAllByChapterId(chapterId: number): CharacterStateSnapshotRecord[] {
     return this.database
       .prepare<[number], CharacterStateSnapshotRecord>(

@@ -52,9 +52,28 @@ export class LoreRepository {
     return statement.get(id);
   }
 
-  findAllByProjectId(projectId: number, type?: string): LoreEntryRecord[] {
+  findAllByProjectId(projectId: number, type?: string, limit?: number): LoreEntryRecord[] {
     if (type === undefined) {
-      const statement = this.database.prepare<[number], LoreEntryRecord>(
+      if (limit === undefined) {
+        const statement = this.database.prepare<[number], LoreEntryRecord>(
+          `SELECT
+             id,
+             project_id,
+             type,
+             title,
+             summary,
+             details,
+             tags,
+             created_at,
+             updated_at
+           FROM lore_entries
+           WHERE project_id = ?
+           ORDER BY id ASC`
+        );
+        return statement.all(projectId);
+      }
+
+      const statement = this.database.prepare<[number, number], LoreEntryRecord>(
         `SELECT
            id,
            project_id,
@@ -67,12 +86,32 @@ export class LoreRepository {
            updated_at
          FROM lore_entries
          WHERE project_id = ?
-         ORDER BY id ASC`
+         ORDER BY updated_at DESC, id DESC
+         LIMIT ?`
       );
-      return statement.all(projectId);
+      return statement.all(projectId, limit);
     }
 
-    const statement = this.database.prepare<[number, string], LoreEntryRecord>(
+    if (limit === undefined) {
+      const statement = this.database.prepare<[number, string], LoreEntryRecord>(
+        `SELECT
+           id,
+           project_id,
+           type,
+           title,
+           summary,
+           details,
+           tags,
+           created_at,
+           updated_at
+         FROM lore_entries
+         WHERE project_id = ? AND type = ?
+         ORDER BY id ASC`
+      );
+      return statement.all(projectId, type);
+    }
+
+    const statement = this.database.prepare<[number, string, number], LoreEntryRecord>(
       `SELECT
          id,
          project_id,
@@ -85,8 +124,9 @@ export class LoreRepository {
          updated_at
        FROM lore_entries
        WHERE project_id = ? AND type = ?
-       ORDER BY id ASC`
+       ORDER BY updated_at DESC, id DESC
+       LIMIT ?`
     );
-    return statement.all(projectId, type);
+    return statement.all(projectId, type, limit);
   }
 }

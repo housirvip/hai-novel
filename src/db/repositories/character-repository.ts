@@ -58,9 +58,37 @@ export class CharacterRepository {
     return character;
   }
 
-  findAllByProjectId(projectId: number): CharacterListItem[] {
+  findAllByProjectId(projectId: number, limit?: number): CharacterListItem[] {
     // 这里直接把势力名联出来，命令层就不用再做额外查询拼装展示结果。
-    const statement = this.database.prepare<[number], CharacterListItem>(
+    if (limit === undefined) {
+      const statement = this.database.prepare<[number], CharacterListItem>(
+        `SELECT
+           c.id,
+           c.project_id,
+           c.name,
+           c.role,
+           c.faction_id,
+           c.profession,
+           c.profession_detail,
+           c.age,
+           c.profile,
+           c.personality,
+           c.goal,
+           c.conflict,
+           c.secret,
+           c.notes,
+           c.created_at,
+           c.updated_at,
+           f.name AS faction_name
+         FROM characters c
+         LEFT JOIN factions f ON f.id = c.faction_id
+         WHERE c.project_id = ?
+         ORDER BY c.id ASC`
+      );
+      return statement.all(projectId);
+    }
+
+    const statement = this.database.prepare<[number, number], CharacterListItem>(
       `SELECT
          c.id,
          c.project_id,
@@ -82,9 +110,10 @@ export class CharacterRepository {
        FROM characters c
        LEFT JOIN factions f ON f.id = c.faction_id
        WHERE c.project_id = ?
-       ORDER BY c.id ASC`
+       ORDER BY c.updated_at DESC, c.id DESC
+       LIMIT ?`
     );
-    return statement.all(projectId);
+    return statement.all(projectId, limit);
   }
 
   findById(id: number): CharacterRecord | undefined {

@@ -38,9 +38,34 @@ export class ItemRepository {
   }
 
   // 项目级物品列表，同时统计当前仍未结束的持有关系数量。
-  findAllByProjectId(projectId: number): ItemListItem[] {
+  findAllByProjectId(projectId: number, limit?: number): ItemListItem[] {
     // 这里顺手统计当前活跃持有人数量，方便列表里快速看出哪些道具正在流转。
-    const statement = this.database.prepare<[number], ItemListItem>(
+    if (limit === undefined) {
+      const statement = this.database.prepare<[number], ItemListItem>(
+        `SELECT
+           i.id,
+           i.project_id,
+           i.name,
+           i.category,
+           i.rarity,
+           i.description,
+           i.origin,
+           i.status,
+           i.created_at,
+           i.updated_at,
+           -- LEFT JOIN 在没有持有人时也会补一行全空记录，因此这里必须先确认 ci.id 存在，
+           -- 才能把“未结束的持有关系”算进活跃持有人数量。
+           COUNT(CASE WHEN ci.id IS NOT NULL AND ci.end_chapter_id IS NULL THEN 1 END) AS active_holder_count
+         FROM items i
+         LEFT JOIN character_items ci ON ci.item_id = i.id
+         WHERE i.project_id = ?
+         GROUP BY i.id
+         ORDER BY i.id ASC`
+      );
+      return statement.all(projectId);
+    }
+
+    const statement = this.database.prepare<[number, number], ItemListItem>(
       `SELECT
          i.id,
          i.project_id,
@@ -52,16 +77,15 @@ export class ItemRepository {
          i.status,
          i.created_at,
          i.updated_at,
-         -- LEFT JOIN 在没有持有人时也会补一行全空记录，因此这里必须先确认 ci.id 存在，
-         -- 才能把“未结束的持有关系”算进活跃持有人数量。
          COUNT(CASE WHEN ci.id IS NOT NULL AND ci.end_chapter_id IS NULL THEN 1 END) AS active_holder_count
        FROM items i
        LEFT JOIN character_items ci ON ci.item_id = i.id
        WHERE i.project_id = ?
        GROUP BY i.id
-       ORDER BY i.id ASC`
+       ORDER BY i.updated_at DESC, i.id DESC
+       LIMIT ?`
     );
-    return statement.all(projectId);
+    return statement.all(projectId, limit);
   }
 
   // 通过主键读取单个物品详情。
